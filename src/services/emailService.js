@@ -8,14 +8,36 @@ class EmailService {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      // Added security settings for Gmail
+      secure: true,
+      tls: {
+        rejectUnauthorized: false
+      }
     });
+    
+    // Verify transporter on creation
+    this.verifyTransporter();
+  }
+
+  async verifyTransporter() {
+    try {
+      await this.transporter.verify();
+      console.log('✅ Email transporter is ready');
+    } catch (error) {
+      console.error('❌ Email transporter verification failed:', error);
+    }
   }
 
   async sendMeetingConfirmation(meetingData) {
     try {
+      console.log('📧 Attempting to send emails...');
+      console.log('📧 From:', process.env.EMAIL_USER);
+      console.log('📧 To client:', meetingData.email);
+      console.log('📧 To company:', process.env.EMAIL_FROM);
+
       // Email to Client
       const clientEmail = {
-        from: process.env.EMAIL_FROM,
+        from: `"Meezan Developers" <${process.env.EMAIL_FROM}>`,
         to: meetingData.email,
         subject: 'Meeting Confirmed - Meezan Developers',
         html: this.getClientEmailTemplate(meetingData)
@@ -23,20 +45,54 @@ class EmailService {
 
       // Email to Company
       const companyEmail = {
-        from: process.env.EMAIL_FROM,
-        to: process.env.EMAIL_FROM, // Sends to company email
+        from: `"Meezan Developers AI Agent" <${process.env.EMAIL_FROM}>`,
+        to: process.env.EMAIL_FROM,
         subject: `New Meeting Scheduled - ${meetingData.name}`,
         html: this.getCompanyEmailTemplate(meetingData)
       };
 
-      // Send both emails
-      await this.transporter.sendMail(clientEmail);
-      await this.transporter.sendMail(companyEmail);
+      console.log('📧 Sending client email...');
+      const clientResult = await this.transporter.sendMail(clientEmail);
+      console.log('✅ Client email sent:', clientResult.messageId);
+
+      console.log('📧 Sending company email...');
+      const companyResult = await this.transporter.sendMail(companyEmail);
+      console.log('✅ Company email sent:', companyResult.messageId);
       
-      console.log('✅ Emails sent successfully');
+      console.log('✅ All emails sent successfully');
       return true;
     } catch (error) {
       console.error('❌ Email sending failed:', error);
+      
+      // More detailed error information
+      if (error.code === 'EAUTH') {
+        console.error('🔐 Authentication failed - check email credentials');
+      } else if (error.code === 'ECONNECTION') {
+        console.error('🌐 Connection failed - check network/port settings');
+      } else if (error.code === 'EENVELOPE') {
+        console.error('✉️ Envelope error - check email addresses');
+      }
+      
+      return false;
+    }
+  }
+
+  // Simple text email fallback (if HTML fails)
+  async sendSimpleMeetingConfirmation(meetingData) {
+    try {
+      const textEmail = {
+        from: `"Meezan Developers" <${process.env.EMAIL_FROM}>`,
+        to: meetingData.email,
+        subject: 'Meeting Confirmed - Meezan Developers',
+        text: this.getTextEmailTemplate(meetingData)
+      };
+
+      console.log('📧 Sending simple text email...');
+      const result = await this.transporter.sendMail(textEmail);
+      console.log('✅ Simple email sent:', result.messageId);
+      return true;
+    } catch (error) {
+      console.error('❌ Simple email also failed:', error);
       return false;
     }
   }
@@ -71,6 +127,7 @@ class EmailService {
             <p><strong>Duration:</strong> 60 minutes</p>
             <p><strong>Type:</strong> Construction Consultation</p>
             <p><strong>Project:</strong> ${meeting.projectType || 'General Discussion'}</p>
+            <p><strong>Meeting ID:</strong> ${meeting.id}</p>
           </div>
 
           <h3>📍 Our Office:</h3>
@@ -79,7 +136,7 @@ class EmailService {
           <h3>📞 Contact Information:</h3>
           <p><strong>Phone:</strong> +92-321-883-6371</p>
           <p><strong>WhatsApp:</strong> +92-311-178-6646</p>
-          <p><strong>Email:</strong> mashoodji7@gmail.com</p>
+          <p><strong>Email:</strong> meezandevelopers.official@gmail.com</p>
 
           <p><em>We recommend arriving 5 minutes early. Please bring any project plans or documents you'd like to discuss.</em></p>
         </div>
@@ -116,21 +173,50 @@ class EmailService {
           <div class="meeting-details">
             <p><strong>Name:</strong> ${meeting.name}</p>
             <p><strong>Email:</strong> ${meeting.email}</p>
-            <p><strong>Phone:</strong> ${meeting.phone || 'Not provided'}</p>
             <p><strong>Date:</strong> ${meeting.date}</p>
             <p><strong>Time:</strong> ${meeting.time}</p>
             <p><strong>Project Type:</strong> ${meeting.projectType || 'Not specified'}</p>
-            <p><strong>Additional Info:</strong> ${meeting.additionalInfo || 'None provided'}</p>
+            <p><strong>Meeting ID:</strong> ${meeting.id}</p>
           </div>
           
-          <p><strong>Meeting ID:</strong> ${meeting.id}</p>
-          <p><strong>Scheduled Via:</strong> Meezan Developers</p>
+          <p><strong>Scheduled Via:</strong> AI Agent System</p>
           <p><strong>Timestamp:</strong> ${new Date().toLocaleString('en-PK')}</p>
           
-          <p style="color: #666; font-style: italic;">This meeting was automatically scheduled through the Agent.</p>
+          <p style="color: #666; font-style: italic;">This meeting was automatically scheduled through the AI Agent.</p>
         </div>
       </body>
       </html>
+    `;
+  }
+
+  getTextEmailTemplate(meeting) {
+    return `
+Meeting Confirmed - Meezan Developers
+
+Dear ${meeting.name},
+
+Your meeting with Meezan Developers has been scheduled successfully.
+
+MEETING DETAILS:
+Date: ${meeting.date}
+Time: ${meeting.time}
+Duration: 60 minutes
+Type: Construction Consultation
+Project: ${meeting.projectType || 'General Discussion'}
+Meeting ID: ${meeting.id}
+
+OUR OFFICE:
+97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore
+
+CONTACT INFORMATION:
+Phone: +92-321-883-6371
+WhatsApp: +92-311-178-6646
+Email: meezandevelopers.official@gmail.com
+
+We recommend arriving 5 minutes early. Please bring any project plans or documents.
+
+Meezan Developers
+Building Excellence Since 2009
     `;
   }
 }

@@ -78,6 +78,8 @@ RESPONSE GUIDELINES:
 - MAINTAIN CONVERSATION CONTEXT - remember what the user was previously asking about
 - If user asks follow-up questions, continue the previous topic naturally
 
+IMPORTANT: When user asks about scheduling meetings, consultations, appointments, or calls, DO NOT provide generic responses. The system will handle meeting booking automatically.
+
 Always respond helpfully and offer relevant suggestions based on construction context and conversation history.`;
 
 // Special prompt for cost estimation
@@ -238,6 +240,24 @@ function isFollowUpQuestion(userMessage, context) {
   return isFollowUp || (isShortMessage && context.lastTopic && !isGreeting(userMessage)) || isClarification;
 }
 
+// Enhanced meeting request detection
+function isMeetingRequest(userMessage) {
+  const meetingKeywords = [
+    'meeting', 'schedule', 'appointment', 'book', 'consultation', 
+    'call', 'meet', 'arrange', 'set up', 'plan a meeting', 
+    'schedule a call', 'book appointment', 'arrange meeting',
+    'set up meeting', 'plan consultation', 'schedule consultation',
+    'book consultation', 'arrange consultation', 'set up consultation',
+    'meet with', 'call with', 'talk to', 'speak with', 'discuss project',
+    'discuss construction', 'project discussion', 'construction meeting',
+    'want to meet', 'need to meet', 'like to schedule', 'would like to book',
+    'set up a call', 'arrange a meeting', 'plan a call', 'schedule meeting',
+    'book a meeting', 'make appointment', 'set appointment'
+  ];
+
+  // Check for exact matches or partial matches
+  return meetingKeywords.some(keyword => userMessage.includes(keyword));
+}
 
 // ==================== ENHANCED ROUTE HANDLERS ====================
 
@@ -351,22 +371,6 @@ router.post('/chat', async (req, res) => {
     });
   }
 });
-
-// NEW: Enhanced meeting request detection function
-function isMeetingRequest(userMessage) {
-  const meetingKeywords = [
-    'meeting', 'schedule', 'appointment', 'book', 'consultation', 
-    'call', 'meet', 'arrange', 'set up', 'plan a meeting', 
-    'schedule a call', 'book appointment', 'arrange meeting',
-    'set up meeting', 'plan consultation', 'schedule consultation',
-    'book consultation', 'arrange consultation', 'set up consultation',
-    'meet with', 'call with', 'talk to', 'speak with', 'discuss project',
-    'discuss construction', 'project discussion', 'construction meeting'
-  ];
-
-  // Check for exact matches or partial matches
-  return meetingKeywords.some(keyword => userMessage.includes(keyword));
-}
 
 // NEW: Handle follow-up questions with context awareness
 async function handleFollowUpQuestion(req, res, sessionId, originalMessage, userMessage, context) {
@@ -1065,78 +1069,76 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
   }
 
   // Step 6: Send confirmation emails
-  if (meetingState.step === 6) {
-    const userResponse = userMessage.toLowerCase();
-    
-    if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
-      try {
-        // Send confirmation emails
-        const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
+if (meetingState.step === 6) {
+  const userResponse = userMessage.toLowerCase();
+  
+  if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
+    try {
+      console.log('📧 Starting email sending process...');
+      
+      // Try sending the main email first
+      let emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
+      
+      // If main email fails, try simple text email
+      if (!emailResult) {
+        console.log('🔄 Main email failed, trying simple email...');
+        emailResult = await emailService.sendSimpleMeetingConfirmation(meetingState.data);
+      }
+      
+      if (emailResult) {
+        console.log('✅ Email sending successful');
         
-        if (emailResult) {
-          console.log('✅ Meeting confirmation emails sent to:', meetingState.data.email);
-          
-          // Clear meeting state after successful email
-          meetingStates.delete(sessionId);
-          
-          return res.json(formatResponse(
-            `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting. For immediate questions, call ${knowledge.company.contact.phone}`,
-            ["Schedule another meeting", "View our services", "Get cost estimate"],
-            'meeting_completed',
-            { meetingId: meetingState.data.id, emailSent: true },
-            sessionId
-          ));
-        } else {
-          console.log('⚠️ Email sending failed, but meeting was booked');
-          
-          // Clear meeting state even if email fails
-          meetingStates.delete(sessionId);
-          
-          return res.json(formatResponse(
-            `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. There was an issue sending the confirmation email, but our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
-            ["Schedule another meeting", "View our services", "Get cost estimate"],
-            'meeting_completed_fallback',
-            { meetingId: meetingState.data.id, emailSent: false },
-            sessionId
-          ));
-        }
-      } catch (error) {
-        console.error('❌ Email sending error:', error);
+        // Clear meeting state after successful email
+        meetingStates.delete(sessionId);
+        
+        return res.json(formatResponse(
+          `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting. For immediate questions, call ${knowledge.company.contact.phone}`,
+          ["Schedule another meeting", "View our services", "Get cost estimate"],
+          'meeting_completed',
+          { meetingId: meetingState.data.id, emailSent: true },
+          sessionId
+        ));
+      } else {
+        console.log('⚠️ All email attempts failed');
         
         // Clear meeting state even if email fails
         meetingStates.delete(sessionId);
         
         return res.json(formatResponse(
-          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nThere was an issue sending the confirmation email, but our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
           ["Schedule another meeting", "View our services", "Get cost estimate"],
           'meeting_completed_fallback',
           { meetingId: meetingState.data.id, emailSent: false },
           sessionId
         ));
       }
-    } else {
-      // User canceled email sending
+    } catch (error) {
+      console.error('❌ Email sending process failed:', error);
+      
+      // Clear meeting state even if email fails
       meetingStates.delete(sessionId);
       
       return res.json(formatResponse(
-        "Meeting booking canceled. How else can I help you today?",
-        ["Schedule meeting", "Our services", "Cost estimation"],
-        'meeting_canceled',
-        null,
+        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+        ["Schedule another meeting", "View our services", "Get cost estimate"],
+        'meeting_completed_fallback',
+        { meetingId: meetingState.data.id, emailSent: false },
         sessionId
       ));
     }
+  } else {
+    // User canceled email sending
+    meetingStates.delete(sessionId);
+    
+    return res.json(formatResponse(
+      "Meeting booking canceled. How else can I help you today?",
+      ["Schedule meeting", "Our services", "Cost estimation"],
+      'meeting_canceled',
+      null,
+      sessionId
+    ));
   }
-
-  // If something went wrong, reset
-  meetingStates.delete(sessionId);
-  return res.json(formatResponse(
-    "Let's start over. How can I help you?",
-    ["Schedule meeting", "Our services", "View portfolio"],
-    'meeting_restart',
-    null,
-    sessionId
-  ));
+}
 }
 
 // ==================== CLEANUP AND MAINTENANCE ====================

@@ -29,8 +29,8 @@ const conversationStates = {
   COST_TYPE_SELECTION: 'cost_type_selection'
 };
 
-// Your actual calculator URL
-const CALCULATOR_URL = 'http://localhost:3000/construction-cost';
+// Updated calculator URL for production
+const CALCULATOR_URL = 'https://meezandevelopers.com/construction-cost';
 
 // Enhanced system prompt for AI Agent with context awareness
 const systemPrompt = `You are an AI Construction Consultant Agent for Meezan Developers.
@@ -910,7 +910,7 @@ function getRelevantSuggestions(userMessage, context) {
   return ["Schedule meeting", "Our services", "Cost estimation"];
 }
 
-// ==================== ENHANCED MEETING HANDLER ====================
+// ==================== COMPLETE MEETING HANDLER ====================
 
 async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
   let meetingState = meetingStates.get(sessionId) || {
@@ -978,10 +978,100 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     ));
   }
 
-  // Continue with the rest of meeting steps...
-  // [Rest of your existing meeting booking code with formatResponse wrappers]
-  
-  // For brevity, including just the first few steps. You should update all meeting responses to use formatResponse
+  // Step 3: Get project type
+  if (meetingState.step === 3) {
+    meetingState.data.projectType = req.body.message;
+    meetingState.step = 4;
+    meetingStates.set(sessionId, meetingState);
+
+    // Generate available dates
+    const availableDates = calendarService.generateAvailableDates();
+    
+    return res.json(formatResponse(
+      `Perfect! For your ${req.body.message} project, which date works best for you?`,
+      availableDates.map(date => date.display),
+      'get_date',
+      { availableDates },
+      sessionId
+    ));
+  }
+
+  // Step 4: Get date
+  if (meetingState.step === 4) {
+    meetingState.data.date = req.body.message;
+    meetingState.step = 5;
+    meetingStates.set(sessionId, meetingState);
+
+    // Generate available times
+    const availableTimes = calendarService.generateAvailableTimes();
+    
+    return res.json(formatResponse(
+      "Great choice! What time works best for you?",
+      availableTimes.map(time => time.display),
+      'get_time',
+      { availableTimes },
+      sessionId
+    ));
+  }
+
+  // Step 5: Get time and confirm booking
+  if (meetingState.step === 5) {
+    meetingState.data.time = req.body.message;
+    meetingState.step = 6;
+    meetingStates.set(sessionId, meetingState);
+
+    // Generate meeting ID
+    meetingState.data.id = 'MTG_' + Date.now();
+    meetingState.data.timestamp = new Date().toISOString();
+
+    return res.json(formatResponse(
+      `📅 **Meeting Confirmed!**\n\nHere are your meeting details:\n\n• **Name:** ${meetingState.data.name}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n\nWe'll send a confirmation email to ${meetingState.data.email}. Our team will contact you to confirm the meeting details.\n\nFor immediate questions, call ${knowledge.company.contact.phone}`,
+      ["Book another meeting", "Our services", "Cost estimation"],
+      'meeting_confirmed',
+      { meeting: meetingState.data },
+      sessionId
+    ));
+  }
+
+  // Step 6: Send confirmation emails
+  if (meetingState.step === 6) {
+    try {
+      // Send confirmation emails
+      const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
+      
+      if (emailResult) {
+        console.log('✅ Meeting confirmation emails sent');
+      } else {
+        console.log('⚠️ Email sending failed, but meeting was booked');
+      }
+
+      // Clear meeting state
+      meetingStates.delete(sessionId);
+      
+      return res.json(formatResponse(
+        `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting.`,
+        ["Schedule another meeting", "View our services", "Get cost estimate"],
+        'meeting_completed',
+        { meetingId: meetingState.data.id, emailSent: emailResult },
+        sessionId
+      ));
+    } catch (error) {
+      console.error('❌ Email sending error:', error);
+      
+      // Clear meeting state even if email fails
+      meetingStates.delete(sessionId);
+      
+      return res.json(formatResponse(
+        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+        ["Schedule another meeting", "View our services", "Get cost estimate"],
+        'meeting_completed_fallback',
+        { meetingId: meetingState.data.id, emailSent: false },
+        sessionId
+      ));
+    }
+  }
+
+  // If something went wrong, reset
   meetingStates.delete(sessionId);
   return res.json(formatResponse(
     "Let's start over. How can I help you?",
@@ -1003,6 +1093,14 @@ setInterval(() => {
   for (const [sessionId, context] of conversationContexts.entries()) {
     if (now - new Date(context.lastInteraction).getTime() > twentyFourHours) {
       conversationContexts.delete(sessionId);
+      cleanedCount++;
+    }
+  }
+  
+  // Clean up old meeting states
+  for (const [sessionId, meetingState] of meetingStates.entries()) {
+    if (now - new Date(meetingState.createdAt || now).getTime() > twentyFourHours) {
+      meetingStates.delete(sessionId);
       cleanedCount++;
     }
   }
@@ -1039,7 +1137,18 @@ router.get('/health', (req, res) => {
     activeSessions: conversationContexts.size,
     activeMeetings: meetingStates.size,
     memoryUsage: process.memoryUsage(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Get conversation stats
+router.get('/stats', (req, res) => {
+  res.json({
+    totalSessions: conversationContexts.size,
+    totalMeetings: meetingStates.size,
+    rateLimitStats: Object.fromEntries(requestCounts.entries()),
+    serverTime: new Date().toISOString()
   });
 });
 

@@ -915,7 +915,8 @@ function getRelevantSuggestions(userMessage, context) {
 async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
   let meetingState = meetingStates.get(sessionId) || {
     step: 0,
-    data: {}
+    data: {},
+    createdAt: new Date().toISOString()
   };
 
   console.log('📅 Meeting State - Step:', meetingState.step, 'Message:', userMessage);
@@ -938,14 +939,16 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     ));
   }
 
-  // Step 1: Get name
+  // Step 1: Get name - FIXED: Use the actual message from request body
   if (meetingState.step === 1) {
-    meetingState.data.name = req.body.message;
+    // Use req.body.message instead of userMessage (which is lowercase)
+    const userName = req.body.message.trim();
+    meetingState.data.name = userName;
     meetingState.step = 2;
     meetingStates.set(sessionId, meetingState);
     
     return res.json(formatResponse(
-      `Nice to meet you, ${req.body.message}! What's your email address for the meeting confirmation?`,
+      `Nice to meet you, ${userName}! What's your email address for the meeting confirmation?`,
       [],
       'get_email',
       null,
@@ -953,9 +956,11 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     ));
   }
 
-  // Step 2: Get email
+  // Step 2: Get email - FIXED: Use the actual message from request body
   if (meetingState.step === 2) {
-    if (!isValidEmail(req.body.message)) {
+    const userEmail = req.body.message.trim();
+    
+    if (!isValidEmail(userEmail)) {
       return res.json(formatResponse(
         "Please provide a valid email address (e.g., name@example.com)",
         ["Try again", "Call instead"],
@@ -965,7 +970,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       ));
     }
 
-    meetingState.data.email = req.body.message;
+    meetingState.data.email = userEmail;
     meetingState.step = 3;
     meetingStates.set(sessionId, meetingState);
     
@@ -978,56 +983,64 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     ));
   }
 
-  // Step 3: Get project type
+  // Step 3: Get project type - FIXED: Use the actual message from request body
   if (meetingState.step === 3) {
-    meetingState.data.projectType = req.body.message;
+    const projectType = req.body.message.trim();
+    meetingState.data.projectType = projectType;
     meetingState.step = 4;
     meetingStates.set(sessionId, meetingState);
 
     // Generate available dates
     const availableDates = calendarService.generateAvailableDates();
     
+    const dateSuggestions = availableDates.map(date => date.display);
+    
     return res.json(formatResponse(
-      `Perfect! For your ${req.body.message} project, which date works best for you?`,
-      availableDates.map(date => date.display),
+      `Perfect! For your ${projectType} project, which date works best for you?`,
+      dateSuggestions,
       'get_date',
       { availableDates },
       sessionId
     ));
   }
 
-  // Step 4: Get date
+  // Step 4: Get date - FIXED: Use the actual message from request body
   if (meetingState.step === 4) {
-    meetingState.data.date = req.body.message;
+    const selectedDate = req.body.message.trim();
+    meetingState.data.date = selectedDate;
     meetingState.step = 5;
     meetingStates.set(sessionId, meetingState);
 
     // Generate available times
     const availableTimes = calendarService.generateAvailableTimes();
+    const timeSuggestions = availableTimes.map(time => time.display);
     
     return res.json(formatResponse(
       "Great choice! What time works best for you?",
-      availableTimes.map(time => time.display),
+      timeSuggestions,
       'get_time',
       { availableTimes },
       sessionId
     ));
   }
 
-  // Step 5: Get time and confirm booking
+  // Step 5: Get time and confirm booking - FIXED: Use the actual message from request body
   if (meetingState.step === 5) {
-    meetingState.data.time = req.body.message;
-    meetingState.step = 6;
-    meetingStates.set(sessionId, meetingState);
-
+    const selectedTime = req.body.message.trim();
+    meetingState.data.time = selectedTime;
+    
     // Generate meeting ID
     meetingState.data.id = 'MTG_' + Date.now();
     meetingState.data.timestamp = new Date().toISOString();
 
+    // Show confirmation before sending email
+    meetingState.step = 6;
+    meetingStates.set(sessionId, meetingState);
+
     return res.json(formatResponse(
-      `📅 **Meeting Confirmed!**\n\nHere are your meeting details:\n\n• **Name:** ${meetingState.data.name}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n\nWe'll send a confirmation email to ${meetingState.data.email}. Our team will contact you to confirm the meeting details.\n\nFor immediate questions, call ${knowledge.company.contact.phone}`,
-      ["Book another meeting", "Our services", "Cost estimation"],
-      'meeting_confirmed',
+      `📅 **Meeting Confirmed!**\n\nHere are your meeting details:\n\n• **Name:** ${meetingState.data.name}\n• **Email:** ${meetingState.data.email}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n• **Meeting ID:** ${meetingState.data.id}\n\nShall I send the confirmation email to ${meetingState.data.email}?`,
+      ["Yes, send confirmation", "No, cancel meeting"],
+      'confirm_email_sending',
       { meeting: meetingState.data },
       sessionId
     ));
@@ -1035,37 +1048,63 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 
   // Step 6: Send confirmation emails
   if (meetingState.step === 6) {
-    try {
-      // Send confirmation emails
-      const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
-      
-      if (emailResult) {
-        console.log('✅ Meeting confirmation emails sent');
-      } else {
-        console.log('⚠️ Email sending failed, but meeting was booked');
+    const userResponse = userMessage.toLowerCase();
+    
+    if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
+      try {
+        // Send confirmation emails
+        const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
+        
+        if (emailResult) {
+          console.log('✅ Meeting confirmation emails sent to:', meetingState.data.email);
+          
+          // Clear meeting state after successful email
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting. For immediate questions, call ${knowledge.company.contact.phone}`,
+            ["Schedule another meeting", "View our services", "Get cost estimate"],
+            'meeting_completed',
+            { meetingId: meetingState.data.id, emailSent: true },
+            sessionId
+          ));
+        } else {
+          console.log('⚠️ Email sending failed, but meeting was booked');
+          
+          // Clear meeting state even if email fails
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. There was an issue sending the confirmation email, but our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+            ["Schedule another meeting", "View our services", "Get cost estimate"],
+            'meeting_completed_fallback',
+            { meetingId: meetingState.data.id, emailSent: false },
+            sessionId
+          ));
+        }
+      } catch (error) {
+        console.error('❌ Email sending error:', error);
+        
+        // Clear meeting state even if email fails
+        meetingStates.delete(sessionId);
+        
+        return res.json(formatResponse(
+          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+          ["Schedule another meeting", "View our services", "Get cost estimate"],
+          'meeting_completed_fallback',
+          { meetingId: meetingState.data.id, emailSent: false },
+          sessionId
+        ));
       }
-
-      // Clear meeting state
+    } else {
+      // User canceled email sending
       meetingStates.delete(sessionId);
       
       return res.json(formatResponse(
-        `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting.`,
-        ["Schedule another meeting", "View our services", "Get cost estimate"],
-        'meeting_completed',
-        { meetingId: meetingState.data.id, emailSent: emailResult },
-        sessionId
-      ));
-    } catch (error) {
-      console.error('❌ Email sending error:', error);
-      
-      // Clear meeting state even if email fails
-      meetingStates.delete(sessionId);
-      
-      return res.json(formatResponse(
-        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
-        ["Schedule another meeting", "View our services", "Get cost estimate"],
-        'meeting_completed_fallback',
-        { meetingId: meetingState.data.id, emailSent: false },
+        "Meeting booking canceled. How else can I help you today?",
+        ["Schedule meeting", "Our services", "Cost estimation"],
+        'meeting_canceled',
+        null,
         sessionId
       ));
     }

@@ -1,0 +1,168 @@
+{
+  "company": {
+    "name": "Meezan Developers",
+    "yearsExperience": "17+",
+    "specialties": [
+      "Residential Construction",
+      "Commercial Construction", 
+      "Industrial Construction",
+      "Religious Buildings",
+      "Roads & Infrastructure",
+      "Educational Facilities",
+      "Healthcare Facilities",
+      "Sports & Recreational",
+      "Renovation & Remodeling",
+      "Project Management"
+    ],
+    "coreValues": ["Quality", "Reliability", "Innovation", "Customer Satisfaction"],
+    "contact": {
+      "phone": "+92-321-883-6371",
+      "whatsapp": "+92-311-178-6646",
+      "email": "meezandevelopers.official@gmail.com",
+      "secondaryEmail": "info@meezandevelopers.com",
+      "address": "97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore",
+      "businessHours": "Monday - Saturday: 8:00 AM - 8:00 PM, Friday: 12:00 PM - 2:00 PM (Jumma Break)"
+    },
+    "stats": {
+      "projectsCompleted": "263+",
+      "teamMembers": "43+",
+      "industryAwards": "5+"
+    }
+  },
+  "services": [
+    {
+      "name": "Residential Construction",
+      "description": "Custom home building, luxury villas, apartment complexes, and modern housing projects designed for comfort and elegance."
+    },
+    {
+      "name": "Commercial Construction", 
+      "description": "Office towers, shopping malls, commercial plazas, and business centers built for business excellence."
+    },
+    {
+      "name": "Industrial Construction",
+      "description": "Warehouses, factories, manufacturing plants, and industrial facilities with advanced infrastructure."
+    },
+    {
+      "name": "Religious Buildings",
+      "description": "Beautiful mosques, churches, temples, and religious centers with traditional and modern architecture."
+    },
+    {
+      "name": "Roads & Infrastructure",
+      "description": "Highways, bridges, road networks, and public infrastructure developments across Pakistan."
+    },
+    {
+      "name": "Educational Facilities",
+      "description": "Schools, colleges, university buildings, libraries, and educational complexes for the future of education."
+    },
+    {
+      "name": "Healthcare Facilities",
+      "description": "Hospitals, clinics, medical centers, and healthcare institutions for community wellness."
+    },
+    {
+      "name": "Sports & Recreational",
+      "description": "Stadiums, sports complexes, recreational centers, and athletic facilities for active lifestyles."
+    },
+    {
+      "name": "Renovation & Remodeling",
+      "description": "Complete renovations, kitchen/bathroom remodels, space optimization, and interior upgrades."
+    },
+    {
+      "name": "Project Management",
+      "description": "End-to-end project oversight, budget management, timeline coordination, and quality control."
+    }
+  ],
+  "team": {
+    "leadership": [
+      {
+        "name": "Engr. Maqbool Ahmed Khan",
+        "role": "STRUCTURE ENGINEER",
+        "expertise": ["Structural Analysis", "Foundation Design", "Building Safety"]
+      },
+      {
+        "name": "Ar. Maria Nafees", 
+        "role": "HEAD ARCHITECTURE",
+        "expertise": ["Concept Design", "Sustainable Architecture", "Creative Vision"]
+      },
+      {
+        "name": "Mufti Raees Ahmed",
+        "role": "DIRECTOR MARKETING", 
+        "expertise": ["Brand Management", "Digital Marketing", "Public Relations"]
+      },
+      {
+        "name": "Engr. Saleem Ahmed",
+        "role": "ARCHITECTURE",
+        "expertise": ["Technical Drawing", "Design Implementation", "Creative Problem-Solving"]
+      },
+      {
+        "name": "Engr. Ehsan Ur Rehman", 
+        "role": "RESIDENT ENGINEER",
+        "expertise": ["Site Supervision", "Quality Control", "Project Execution"]
+      },
+      {
+        "name": "Tahir Abbas",
+        "role": "PROCUREMENT MANAGER",
+        "expertise": ["Vendor Management", "Supply Chain", "Cost Optimization"]
+      }
+    ]
+  },
+  "constructionCosts": {
+    "residential": {
+      "greyStructure": "PKR 2,750 - 3,300 per sq. ft.",
+      "finished": "PKR 4,600 - 5,500 per sq. ft.", 
+      "premium": "PKR 6,500 - 7,500+ per sq. ft."
+    },
+    "commercial": {
+      "basic": "PKR 3,500 - 4,500 per sq. ft.",
+      "standard": "PKR 4,500 - 6,000 per sq. ft.",
+      "premium": "PKR 6,000 - 8,000+ per sq. ft."
+    },
+    "industrial": {
+      "basic": "PKR 2,800 - 3,500 per sq. ft.",
+      "standard": "PKR 3,500 - 4,800 per sq. ft.", 
+      "premium": "PKR 4,800 - 6,000+ per sq. ft."
+    },
+    "costFactors": ["Location", "Material Quality", "Design Complexity", "Project Size", "Timeline"]
+  },
+  "companyInfo": {
+    "mission": "To pioneer the future of urban living in Pakistan by developing superior, sustainable, and intelligent properties.",
+    "vision": "To be the most trusted and transformative real estate developer in Pakistan, setting the benchmark for quality and innovation.",
+    "history": "Established in 2009, Meezan Developers has built a legacy defined by relentless pursuit of construction excellence, evolving from specialized contractor to multifaceted industry leader.",
+    "meaning": "Meezan derived from Arabic for 'BALANCE' & 'SCALES' epitomizes our foundational principle: meticulous equilibrium of aesthetic vision, structural integrity, and client value."
+  },
+  "faqs": [
+    {
+      "question": "What areas do you serve?",
+      "answer": "We primarily serve Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan and surrounding areas with project capabilities throughout Pakistan."
+    },
+    {
+      "question": "Do you provide free consultations?",
+      "answer": "Yes, we offer complimentary initial consultations to discuss your project requirements and provide preliminary guidance."
+    },
+    {
+      "question": "What is your typical project timeline?",
+      "answer": "Project timelines vary based on scope and complexity. Residential projects typically take 6-18 months, commercial projects 12-24 months. We provide detailed timelines during consultation."
+    },
+    {
+      "question": "Do you handle both design and construction?",
+      "answer": "Yes, we are a fully integrated firm offering both architectural design and construction services for seamless project delivery."
+    },
+    {
+      "question": "What quality standards do you follow?",
+      "answer": "We adhere to international construction standards, use premium materials, and implement rigorous quality control at every project stage."
+    },
+    {
+      "question": "Can you work with existing architectural plans?",
+      "answer": "Yes, we can work with your existing plans or develop new designs based on your requirements and vision."
+    }
+  ],
+  "projectPortfolio": {
+    "residential": "12+ Projects",
+    "commercial": "6 Projects", 
+    "industrial": "3 Projects",
+    "religious": "6 Projects",
+    "infrastructure": "7 Projects",
+    "educational": "6 Projects",
+    "roads": "6 Projects",
+    "totalCompleted": "263+ Projects"
+  }
+}

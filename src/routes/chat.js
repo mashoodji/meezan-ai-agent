@@ -1069,43 +1069,33 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
   }
 
   // Step 6: Send confirmation emails
+// In handleMeetingBooking function - Step 6
 if (meetingState.step === 6) {
   const userResponse = userMessage.toLowerCase();
   
   if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
     try {
-      console.log('📧 Starting email sending process...');
+      console.log('📧 Attempting to send confirmation email from deployed backend...');
       
-      // Try sending the main email first
-      let emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
-      
-      // If main email fails, try simple text email
-      if (!emailResult) {
-        console.log('🔄 Main email failed, trying simple email...');
-        emailResult = await emailService.sendSimpleMeetingConfirmation(meetingState.data);
-      }
+      const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
       
       if (emailResult) {
-        console.log('✅ Email sending successful');
-        
-        // Clear meeting state after successful email
+        console.log('✅ Email sent successfully from deployed backend');
         meetingStates.delete(sessionId);
         
         return res.json(formatResponse(
-          `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our construction experts are looking forward to discussing your ${meetingState.data.projectType} project.\n\nMeeting ID: ${meetingState.data.id}\n\nYou'll receive a reminder before the meeting. For immediate questions, call ${knowledge.company.contact.phone}`,
+          `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
           ["Schedule another meeting", "View our services", "Get cost estimate"],
           'meeting_completed',
           { meetingId: meetingState.data.id, emailSent: true },
           sessionId
         ));
       } else {
-        console.log('⚠️ All email attempts failed');
-        
-        // Clear meeting state even if email fails
+        console.log('⚠️ Email failed, but meeting was booked');
         meetingStates.delete(sessionId);
         
         return res.json(formatResponse(
-          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nThere was an issue sending the confirmation email, but our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nMeeting ID: ${meetingState.data.id}\n\nOur team will contact you to confirm.`,
           ["Schedule another meeting", "View our services", "Get cost estimate"],
           'meeting_completed_fallback',
           { meetingId: meetingState.data.id, emailSent: false },
@@ -1113,13 +1103,11 @@ if (meetingState.step === 6) {
         ));
       }
     } catch (error) {
-      console.error('❌ Email sending process failed:', error);
-      
-      // Clear meeting state even if email fails
+      console.error('❌ Email process error:', error);
       meetingStates.delete(sessionId);
       
       return res.json(formatResponse(
-        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. Our team will contact you shortly to confirm.\n\nMeeting ID: ${meetingState.data.id}\n\nFor immediate assistance, call ${knowledge.company.contact.phone}`,
+        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
         ["Schedule another meeting", "View our services", "Get cost estimate"],
         'meeting_completed_fallback',
         { meetingId: meetingState.data.id, emailSent: false },
@@ -1127,11 +1115,10 @@ if (meetingState.step === 6) {
       ));
     }
   } else {
-    // User canceled email sending
+    // User canceled
     meetingStates.delete(sessionId);
-    
     return res.json(formatResponse(
-      "Meeting booking canceled. How else can I help you today?",
+      "Meeting booking canceled.",
       ["Schedule meeting", "Our services", "Cost estimation"],
       'meeting_canceled',
       null,

@@ -33,8 +33,7 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api', require('./routes/chat'));
+// ==================== ALL ROUTES MUST BE DEFINED HERE ====================
 
 // Enhanced health check
 app.get('/health', (req, res) => {
@@ -60,9 +59,66 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       chat: '/api/chat',
-      test: '/api/test-email'
+      debug: '/api/debug-email'
     }
   });
+});
+
+// ✅ DEBUG ENDPOINT - MUST BE BEFORE CHAT ROUTES
+app.get('/api/debug-email', async (req, res) => {
+  try {
+    console.log('🔧 Debugging email service on deployed backend...');
+    
+    // Check environment variables
+    const envCheck = {
+      EMAIL_USER: process.env.EMAIL_USER ? '✅ Set' : '❌ Missing',
+      EMAIL_PASS: process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Missing', 
+      EMAIL_FROM: process.env.EMAIL_FROM ? '✅ Set' : '❌ Missing',
+      NODE_ENV: process.env.NODE_ENV || 'not set'
+    };
+    
+    console.log('Environment Check:', envCheck);
+    
+    const emailService = require('./services/emailService');
+    
+    // Test with simple data
+    const testData = {
+      name: "Test User",
+      email: process.env.EMAIL_USER || 'mashoodji7@gmail.com',
+      projectType: "Test Project",
+      date: "2024-01-01",
+      time: "2:00 PM",
+      id: "DEBUG_" + Date.now()
+    };
+    
+    console.log('📧 Testing email send...');
+    const result = await emailService.sendMeetingConfirmation(testData);
+    
+    res.json({
+      success: result,
+      environment: envCheck,
+      message: result ? 'Email test passed' : 'Email test failed',
+      timestamp: new Date().toISOString(),
+      testData: {
+        to: testData.email,
+        from: process.env.EMAIL_FROM
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      environment: {
+        EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Not set',
+        EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Not set',
+        EMAIL_FROM: process.env.EMAIL_FROM ? 'Set' : 'Not set',
+        NODE_ENV: process.env.NODE_ENV || 'not set'
+      }
+    });
+  }
 });
 
 // Test email endpoint (disabled in production)
@@ -100,7 +156,12 @@ app.get('/api/test-email', async (req, res) => {
   }
 });
 
-// 404 handler
+// Routes - MUST BE AFTER ALL SPECIFIC ENDPOINTS
+app.use('/api', require('./routes/chat'));
+
+// ==================== ERROR HANDLERS (MUST BE LAST) ====================
+
+// 404 handler - MUST BE THE LAST ROUTE
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -108,6 +169,7 @@ app.use('*', (req, res) => {
     availableEndpoints: {
       'GET /': 'API information',
       'GET /health': 'Health check',
+      'GET /api/debug-email': 'Debug email service',
       'POST /api/chat': 'Chat with AI agent'
     }
   });
@@ -123,12 +185,15 @@ app.use((error, req, res, next) => {
   });
 });
 
+// ==================== SERVER START ====================
+
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Meezan Developers AI Agent Backend running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`📍 Website: https://meezandevelopers.com`);
   console.log(`📍 Health: http://localhost:${PORT}/health`);
+  console.log(`📍 Debug: http://localhost:${PORT}/api/debug-email`);
   console.log(`📍 Features: Meeting Booking + Email Automation`);
 });
 

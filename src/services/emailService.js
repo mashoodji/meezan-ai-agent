@@ -2,29 +2,61 @@ const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      // Added security settings for Gmail
-      secure: true,
-      tls: {
-        rejectUnauthorized: false
+    this.initializeTransporter();
+  }
+
+  initializeTransporter() {
+    try {
+      console.log('📧 Initializing email transporter...');
+      console.log('📧 Email User:', process.env.EMAIL_USER);
+      console.log('📧 Email From:', process.env.EMAIL_FROM);
+      
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        console.error('❌ Email credentials missing!');
+        return;
       }
-    });
-    
-    // Verify transporter on creation
-    this.verifyTransporter();
+
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+        secure: true,
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+      
+      // Verify transporter on creation
+      this.verifyTransporter();
+    } catch (error) {
+      console.error('❌ Email transporter initialization failed:', error);
+    }
   }
 
   async verifyTransporter() {
     try {
+      if (!this.transporter) {
+        console.error('❌ Transporter not initialized');
+        return false;
+      }
+      
       await this.transporter.verify();
       console.log('✅ Email transporter is ready');
+      return true;
     } catch (error) {
       console.error('❌ Email transporter verification failed:', error);
+      
+      // More detailed error information
+      if (error.code === 'EAUTH') {
+        console.error('🔐 Authentication failed - check email credentials');
+        console.error('💡 Make sure you are using an App Password, not your Gmail password');
+      } else if (error.code === 'ECONNECTION') {
+        console.error('🌐 Connection failed - check network/port settings');
+      }
+      
+      return false;
     }
   }
 
@@ -34,6 +66,11 @@ class EmailService {
       console.log('📧 From:', process.env.EMAIL_USER);
       console.log('📧 To client:', meetingData.email);
       console.log('📧 To company:', process.env.EMAIL_FROM);
+
+      if (!this.transporter) {
+        console.error('❌ Email transporter not initialized');
+        return false;
+      }
 
       // Email to Client
       const clientEmail = {
@@ -67,13 +104,16 @@ class EmailService {
       // More detailed error information
       if (error.code === 'EAUTH') {
         console.error('🔐 Authentication failed - check email credentials');
+        console.error('💡 Make sure you are using an App Password, not your Gmail password');
       } else if (error.code === 'ECONNECTION') {
         console.error('🌐 Connection failed - check network/port settings');
       } else if (error.code === 'EENVELOPE') {
         console.error('✉️ Envelope error - check email addresses');
       }
       
-      return false;
+      // Try simple text email as fallback
+      console.log('🔄 Trying simple text email fallback...');
+      return await this.sendSimpleMeetingConfirmation(meetingData);
     }
   }
 

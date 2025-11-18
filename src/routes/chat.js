@@ -238,6 +238,7 @@ function isFollowUpQuestion(userMessage, context) {
   return isFollowUp || (isShortMessage && context.lastTopic && !isGreeting(userMessage)) || isClarification;
 }
 
+
 // ==================== ENHANCED ROUTE HANDLERS ====================
 
 router.post('/chat', async (req, res) => {
@@ -331,8 +332,9 @@ router.post('/chat', async (req, res) => {
       return await handleCostQuery(req, res, sessionId, message, context);
     }
 
-    // Check if this is a meeting request
-    if (userMessage.includes('meeting') || userMessage.includes('schedule') || userMessage.includes('appointment') || userMessage.includes('book')) {
+    // ENHANCED: Check if this is a meeting request - IMPROVED DETECTION
+    if (isMeetingRequest(userMessage)) {
+      console.log('🎯 Meeting request detected:', userMessage);
       return await handleMeetingBooking(req, res, sessionId, userMessage, context);
     }
 
@@ -349,6 +351,22 @@ router.post('/chat', async (req, res) => {
     });
   }
 });
+
+// NEW: Enhanced meeting request detection function
+function isMeetingRequest(userMessage) {
+  const meetingKeywords = [
+    'meeting', 'schedule', 'appointment', 'book', 'consultation', 
+    'call', 'meet', 'arrange', 'set up', 'plan a meeting', 
+    'schedule a call', 'book appointment', 'arrange meeting',
+    'set up meeting', 'plan consultation', 'schedule consultation',
+    'book consultation', 'arrange consultation', 'set up consultation',
+    'meet with', 'call with', 'talk to', 'speak with', 'discuss project',
+    'discuss construction', 'project discussion', 'construction meeting'
+  ];
+
+  // Check for exact matches or partial matches
+  return meetingKeywords.some(keyword => userMessage.includes(keyword));
+}
 
 // NEW: Handle follow-up questions with context awareness
 async function handleFollowUpQuestion(req, res, sessionId, originalMessage, userMessage, context) {

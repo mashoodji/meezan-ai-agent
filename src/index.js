@@ -64,6 +64,34 @@ app.get('/', (req, res) => {
   });
 });
 
+// Calendar debug endpoint
+app.get('/api/debug-calendar', async (req, res) => {
+  try {
+    const calendarService = require('./services/calendarService');
+    
+    const availableDates = calendarService.generateAvailableDates();
+    const bookedSlots = calendarService.getBookedSlots();
+    const nextAvailable = calendarService.getNextAvailableSlots(5);
+    
+    res.json({
+      success: true,
+      availableDates,
+      bookedSlots,
+      nextAvailableSlots: nextAvailable,
+      totalBookedSlots: bookedSlots.length,
+      businessHours: calendarService.businessHours,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Calendar debug error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ✅ DEBUG ENDPOINT - MUST BE BEFORE CHAT ROUTES
 app.get('/api/debug-email', async (req, res) => {
   try {

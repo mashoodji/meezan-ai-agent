@@ -32,95 +32,100 @@ const conversationStates = {
 // Updated calculator URL for production
 const CALCULATOR_URL = 'https://meezandevelopers.com/construction-cost';
 
-// Enhanced system prompt for AI Agent with context awareness
-const systemPrompt = `You are an AI Construction Consultant Agent for Meezan Developers.
+// AI Agent Personality Configuration
+const AGENT_PERSONALITY = {
+  name: "Meezan AI Consultant",
+  tone: "professional yet friendly",
+  expertise: "construction and project planning",
+  traits: ["helpful", "knowledgeable", "efficient", "personable"]
+};
 
-COMPANY INFORMATION:
-- Name: ${knowledge.company.name}
-- Experience: ${knowledge.company.yearsExperience}
-- Phone: ${knowledge.company.contact.phone}
-- WhatsApp: ${knowledge.company.contact.whatsapp}
-- Email: ${knowledge.company.contact.email}
-- Address: ${knowledge.company.contact.address}
+// AI Agent Response Styles
+const RESPONSE_STYLES = {
+  greeting: [
+    "Hello! I'm your AI construction consultant at Meezan Developers. With our {yearsExperience} of experience and {totalCompleted} projects completed, I'm here to help bring your construction vision to life! What project are you thinking about?",
+    "Welcome to Meezan Developers! I'm your AI construction specialist. We've successfully delivered {totalCompleted} projects over {yearsExperience}. How can I assist with your construction plans today?",
+    "Hi there! I'm the AI consultant for Meezan Developers. We combine {yearsExperience} of construction expertise with modern technology to help clients like you. What construction project are you considering?"
+  ],
+  meeting_start: [
+    "I'd be delighted to schedule a consultation with our construction experts! Let's find the perfect time to discuss your project. First, what should I call you?",
+    "Excellent! Our construction specialists would love to learn about your project. Let's get you booked in. May I have your name to get started?",
+    "Perfect timing! I can arrange a meeting with our team who have handled {totalCompleted} projects. To personalize your consultation, what's your name?"
+  ],
+  project_type: [
+    "That's exciting! {name}, what type of construction project are you planning? Residential, commercial, or perhaps something else?",
+    "Great! To connect you with the right experts, {name}, could you tell me what kind of project you have in mind?",
+    "Wonderful, {name}! Our team specializes in various project types. Are you thinking residential, commercial, industrial, or another type of construction?"
+  ],
+  date_selection: [
+    "I've checked our specialists' calendar. For your {projectType} project, here are the available consultation slots. Which works best for your schedule?",
+    "Our construction experts have availability coming up. For your {projectType} project, which of these dates fits your timeline?",
+    "I found some great slots with our {projectType} specialists. When would you prefer to meet and discuss your project in detail?"
+  ]
+};
 
-KEY SERVICES:
-${knowledge.services.map(service => `• ${service.name}: ${service.description}`).join('\n')}
+// Enhanced system prompt for AI Agent with personality
+const systemPrompt = `You are an AI Construction Consultant Agent for Meezan Developers. You have a professional yet friendly personality.
 
-PROJECT PORTFOLIO:
-- Total Projects: ${knowledge.projectPortfolio.totalCompleted}
-- Residential: ${knowledge.projectPortfolio.residential}
-- Commercial: ${knowledge.projectPortfolio.commercial}
-- Industrial: ${knowledge.projectPortfolio.industrial}
-- Religious: ${knowledge.projectPortfolio.religious}
-- Infrastructure: ${knowledge.projectPortfolio.infrastructure}
-- Educational: ${knowledge.projectPortfolio.educational}
-- Roads: ${knowledge.projectPortfolio.roads}
+PERSONALITY TRAITS:
+- Helpful and knowledgeable about construction
+- Efficient but personable
+- Proactive in offering solutions
+- Maintains natural conversation flow
+- Shows genuine interest in client projects
 
-CONSTRUCTION COSTS:
-- Residential: ${knowledge.constructionCosts.residential.greyStructure} (Grey Structure)
-- Commercial: ${knowledge.constructionCosts.commercial.basic} (Basic)
-- Industrial: ${knowledge.constructionCosts.industrial.basic} (Basic)
-
-COMPANY STATS:
-- Projects Completed: ${knowledge.company.stats.projectsCompleted}
-- Team Members: ${knowledge.company.stats.teamMembers}
-- Industry Awards: ${knowledge.company.stats.industryAwards}
+COMPANY EXPERTISE:
+- ${knowledge.company.yearsExperience} years in construction industry
+- ${knowledge.projectPortfolio.totalCompleted} projects completed
+- Specialized in residential, commercial, and industrial construction
+- Team of ${knowledge.company.stats.teamMembers} construction experts
 
 RESPONSE GUIDELINES:
-- Be professional but friendly and concise
-- Keep responses short and scannable (2-4 lines max for initial responses)
-- Use company information from above for accurate responses
-- For cost estimates, use the construction costs data provided
-- When user asks about specific project costs, provide COST ESTIMATES not portfolio
-- Mention that final costs depend on specific requirements
-- Always recommend consultation for accurate pricing
-- Use bullet points only when necessary
-- MAINTAIN CONVERSATION CONTEXT - remember what the user was previously asking about
-- If user asks follow-up questions, continue the previous topic naturally
+- Sound like a knowledgeable construction professional, not a robot
+- Use natural, conversational language
+- Show enthusiasm for construction projects
+- Provide specific, actionable advice
+- Maintain context throughout conversation
+- Be concise but warm and engaging
+- Use construction industry terminology appropriately
+- Offer proactive suggestions based on project type
 
-IMPORTANT: When user asks about scheduling meetings, consultations, appointments, or calls, DO NOT provide generic responses. The system will handle meeting booking automatically.
+IMPORTANT: When discussing meetings, make it feel like you're personally arranging the consultation with our team, not just processing a form.`;
 
-Always respond helpfully and offer relevant suggestions based on construction context and conversation history.`;
+// Special prompt for cost estimation with personality
+const costEstimationPrompt = `You are a construction cost expert at Meezan Developers with ${knowledge.company.yearsExperience} of industry experience. Provide helpful, accurate cost guidance.
 
-// Special prompt for cost estimation
-const costEstimationPrompt = `You are a construction cost expert in Pakistan. Provide current market construction cost estimates for different project types.
+CONSTRUCTION COST EXPERTISE:
+- Deep knowledge of Pakistan construction market
+- Understanding of material costs and labor rates
+- Experience with ${knowledge.projectPortfolio.totalCompleted} projects
+- Knowledge of quality standards and building codes
 
-Use this actual cost data from Meezan Developers:
+RESPONSE STYLE:
+- Sound like a seasoned construction professional
+- Provide realistic, practical cost advice
+- Explain factors that affect pricing
+- Offer guidance on budget planning
+- Be transparent about cost variables
 
-RESIDENTIAL CONSTRUCTION:
-- Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}
-- Finished: ${knowledge.constructionCosts.residential.finished}
-- Premium: ${knowledge.constructionCosts.residential.premium}
+Always position yourself as Meezan Developers' construction expert, not just an AI.`;
 
-COMMERCIAL CONSTRUCTION:
-- Basic: ${knowledge.constructionCosts.commercial.basic}
-- Standard: ${knowledge.constructionCosts.commercial.standard}
-- Premium: ${knowledge.constructionCosts.commercial.premium}
+// ==================== AI AGENT HELPER FUNCTIONS ====================
 
-INDUSTRIAL CONSTRUCTION:
-- Basic: ${knowledge.constructionCosts.industrial.basic}
-- Standard: ${knowledge.constructionCosts.industrial.standard}
-- Premium: ${knowledge.constructionCosts.industrial.premium}
+// Natural response generator
+function generateNaturalResponse(type, variables = {}) {
+  const templates = RESPONSE_STYLES[type] || [variables.default || "I'd be happy to help with that!"];
+  const template = templates[Math.floor(Math.random() * templates.length)];
+  
+  // Replace variables in template
+  return template.replace(/{(\w+)}/g, (match, key) => {
+    return variables[key] || knowledge[key] || match;
+  });
+}
 
-COST FACTORS:
-${knowledge.constructionCosts.costFactors.map(factor => `- ${factor}`).join('\n')}
-
-COMPANY INFORMATION:
-- Name: ${knowledge.company.name}
-- Experience: ${knowledge.company.yearsExperience}
-- Projects Completed: ${knowledge.projectPortfolio.totalCompleted}
-- Contact: ${knowledge.company.contact.phone}
-
-IMPORTANT: When user asks about specific project costs (like "industrial projects cost", "residential construction price", etc.), provide COST ESTIMATES, not portfolio information.
-
-Always mention that these are estimates and final costs require detailed consultation with Meezan Developers.`;
-
-// ==================== ENHANCED HELPER FUNCTIONS ====================
-
-// Input sanitization
+// Intelligent input sanitization
 function sanitizeInput(input) {
   if (typeof input !== 'string') return '';
-  // Remove potentially harmful characters and limit length
   return input.trim().replace(/[<>]/g, '').slice(0, 500);
 }
 
@@ -141,7 +146,7 @@ function isRateLimited(sessionId) {
   return false;
 }
 
-// Enhanced Gemini API caller with better error handling
+// Enhanced Gemini API caller with personality
 async function callGeminiAPI(promptConfig, fallbackResponse) {
   try {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
@@ -163,7 +168,7 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
   }
 }
 
-// Initialize enhanced context with conversation history
+// Initialize AI Agent context
 function initializeContext(sessionId) {
   const context = {
     sessionId,
@@ -180,35 +185,38 @@ function initializeContext(sessionId) {
     conversationHistory: [],
     interactionCount: 0,
     lastInteraction: new Date().toISOString(),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    clientName: null // Track client name for personalization
   };
   
   conversationContexts.set(sessionId, context);
   return context;
 }
 
-// Enhanced conversation logging
+// AI Agent conversation logging
 function logConversation(sessionId, userMessage, response, context) {
-  console.log('💬 Conversation Log:', {
+  console.log('🤖 AI Agent Conversation:', {
     sessionId: sessionId.substring(0, 12) + '...',
     userMessage: userMessage.substring(0, 80) + (userMessage.length > 80 ? '...' : ''),
     responseType: response.action || 'general',
     context: {
       lastTopic: context.lastTopic,
       state: context.state,
-      interactionCount: context.interactionCount
+      interactionCount: context.interactionCount,
+      clientName: context.clientName
     },
     timestamp: new Date().toISOString()
   });
 }
 
-// Enhanced response formatter
+// Enhanced response formatter for AI Agent
 function formatResponse(reply, suggestions = [], action = null, details = null, sessionId = null) {
   const response = {
     success: true,
     reply,
     suggestions,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    agent: AGENT_PERSONALITY.name
   };
   
   if (action) response.action = action;
@@ -218,58 +226,51 @@ function formatResponse(reply, suggestions = [], action = null, details = null, 
   return response;
 }
 
-// Enhanced follow-up question detection
+// Intelligent follow-up detection
 function isFollowUpQuestion(userMessage, context) {
   if (!context.lastTopic || context.interactionCount < 2) return false;
 
   const followUpIndicators = [
-    'no i want', 'i want to know', 'tell me about', 'what about', 'how about',
-    'can you', 'could you', 'please', 'actually', 'but', 'however',
-    'more', 'detail', 'specific', 'explain', 'elaborate', 'what is the',
-    'give me', 'show me', 'i need'
+    'more about', 'tell me', 'explain', 'what about', 'how about',
+    'can you', 'could you', 'actually', 'specifically',
+    'regarding', 'concerning', 'related to', 'building on'
   ];
 
   const isFollowUp = followUpIndicators.some(indicator => 
     userMessage.includes(indicator)
   );
 
-  // Also consider short messages as follow-ups if we have context
-  const isShortMessage = userMessage.split(' ').length <= 8;
-  const isClarification = userMessage.includes('?') || userMessage.includes('this') || userMessage.includes('that');
+  // Consider context and conversation flow
+  const hasContext = context.lastTopic && context.interactionCount > 1;
+  const isEngaged = userMessage.split(' ').length > 3;
   
-  return isFollowUp || (isShortMessage && context.lastTopic && !isGreeting(userMessage)) || isClarification;
+  return isFollowUp || (hasContext && isEngaged);
 }
 
-// Enhanced meeting request detection
+// Natural meeting request detection
 function isMeetingRequest(userMessage) {
   const meetingKeywords = [
-    'meeting', 'schedule', 'appointment', 'book', 'consultation', 
-    'call', 'meet', 'arrange', 'set up', 'plan a meeting', 
-    'schedule a call', 'book appointment', 'arrange meeting',
-    'set up meeting', 'plan consultation', 'schedule consultation',
-    'book consultation', 'arrange consultation', 'set up consultation',
-    'meet with', 'call with', 'talk to', 'speak with', 'discuss project',
-    'discuss construction', 'project discussion', 'construction meeting',
-    'want to meet', 'need to meet', 'like to schedule', 'would like to book',
-    'set up a call', 'arrange a meeting', 'plan a call', 'schedule meeting',
-    'book a meeting', 'make appointment', 'set appointment'
+    'meeting', 'schedule', 'appointment', 'consultation', 
+    'discuss my project', 'talk to expert', 'meet with team',
+    'book a consultation', 'arrange meeting', 'set up call',
+    'project discussion', 'construction meeting', 'site visit',
+    'planning session', 'design consultation'
   ];
 
-  // Check for exact matches or partial matches
   return meetingKeywords.some(keyword => userMessage.includes(keyword));
 }
 
-// ==================== ENHANCED ROUTE HANDLERS ====================
+// ==================== AI AGENT ROUTE HANDLERS ====================
 
 router.post('/chat', async (req, res) => {
   try {
     let { message, sessionId } = req.body;
     
-    // Enhanced input validation
+    // Enhanced input validation with natural response
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        reply: "Please provide a valid message."
+        reply: "I'd love to help! Could you please tell me what you're looking for regarding your construction project?"
       });
     }
     
@@ -281,14 +282,14 @@ router.post('/chat', async (req, res) => {
     if (isRateLimited(sessionId)) {
       return res.status(429).json({
         success: false,
-        reply: "⏳ Please wait a moment before sending another message. For immediate assistance, call " + knowledge.company.contact.phone
+        reply: "I'm helping several clients right now. Please give me a moment, or feel free to call our team directly at " + knowledge.company.contact.phone + " for immediate assistance."
       });
     }
 
     console.log('🤖 AI Agent Processing:', message);
     const userMessage = message.toLowerCase().trim();
     
-    // Get or initialize context with enhanced structure
+    // Get or initialize context with AI Agent structure
     const context = conversationContexts.get(sessionId) || initializeContext(sessionId);
 
     // Update interaction tracking
@@ -305,20 +306,20 @@ router.post('/chat', async (req, res) => {
       context.conversationHistory = context.conversationHistory.slice(-8);
     }
 
-    // Check if user is in the middle of meeting booking - THIS MUST BE FIRST
+    // Check if user is in the middle of meeting booking
     const meetingState = meetingStates.get(sessionId);
     if (meetingState && meetingState.step > 0) {
-      console.log('🔄 Continuing meeting flow, step:', meetingState.step);
+      console.log('🤖 AI Agent continuing meeting flow, step:', meetingState.step);
       return await handleMeetingBooking(req, res, sessionId, userMessage, context);
     }
 
-    // ENHANCED: Check for follow-up questions about previous topic
+    // Intelligent follow-up question handling
     if (isFollowUpQuestion(userMessage, context)) {
-      console.log('🔄 Handling follow-up question about:', context.lastTopic);
+      console.log('🤖 AI Agent handling follow-up about:', context.lastTopic);
       return await handleFollowUpQuestion(req, res, sessionId, message, userMessage, context);
     }
 
-    // Handle specific button clicks
+    // Handle specific intents with natural responses
     if (userMessage.includes('calculate cost') || userMessage.includes('cost calculator')) {
       return await handleCostCalculator(res, sessionId, context);
     }
@@ -327,38 +328,38 @@ router.post('/chat', async (req, res) => {
       return await handleCostEstimate(req, res, sessionId, message, context);
     }
 
-    // Handle greetings and natural conversation
+    // Natural greeting handling
     if (isGreeting(userMessage)) {
       return await handleGreeting(req, res, sessionId, userMessage, context);
     }
 
-    // Check if user wants to know about the AI
+    // AI Agent self-awareness
     if (isAboutQuery(userMessage)) {
       return await handleAboutQuery(res, sessionId, context);
     }
 
-    // Check if user asks about portfolio
+    // Portfolio with context
     if (isPortfolioQuery(userMessage)) {
       return await handlePortfolioQuery(res, sessionId, context);
     }
 
-    // Check if user asks about services or projects
+    // Service inquiries with expertise
     if (isServiceQuery(userMessage)) {
       return await handleServiceQuery(res, sessionId, userMessage, context);
     }
 
-    // Check if user asks about costs - UPDATED FLOW
+    // Cost discussions with professional insight
     if (isCostQuery(userMessage)) {
       return await handleCostQuery(req, res, sessionId, message, context);
     }
 
-    // ENHANCED: Check if this is a meeting request - IMPROVED DETECTION
+    // Natural meeting request handling
     if (isMeetingRequest(userMessage)) {
-      console.log('🎯 Meeting request detected:', userMessage);
+      console.log('🤖 AI Agent detected meeting request:', userMessage);
       return await handleMeetingBooking(req, res, sessionId, userMessage, context);
     }
 
-    // Enhanced general query handler
+    // Intelligent general query handler
     return await handleGeneralQuery(req, res, sessionId, message, userMessage, context);
 
   } catch (error) {
@@ -366,26 +367,27 @@ router.post('/chat', async (req, res) => {
     
     return res.json({ 
       success: true,
-      reply: `I'd be happy to help! Please call ${knowledge.company.contact.phone} for immediate assistance.`,
-      suggestions: ["Schedule meeting", "Our services", "Cost estimation"]
+      reply: `I'd be delighted to help with your construction project! For detailed assistance, you can also reach our construction team at ${knowledge.company.contact.phone}.`,
+      suggestions: ["Schedule consultation", "Our construction services", "Cost estimation"],
+      agent: AGENT_PERSONALITY.name
     });
   }
 });
 
-// NEW: Handle follow-up questions with context awareness
+// AI Agent follow-up handler
 async function handleFollowUpQuestion(req, res, sessionId, originalMessage, userMessage, context) {
   const lastTopic = context.lastTopic;
   const lastService = context.lastService;
 
-  console.log('🔍 Follow-up detected. Last topic:', lastTopic, 'Last service:', lastService);
+  console.log('🤖 AI Agent follow-up detected:', lastTopic, lastService);
 
   // If user was asking about a service and now wants cost
   if (lastService && (userMessage.includes('cost') || userMessage.includes('price') || userMessage.includes('estimate') || userMessage.includes('how much'))) {
-    console.log('💰 Providing cost for service:', lastService);
+    console.log('🤖 AI Agent providing cost for service:', lastService);
     return await provideServiceCostEstimate(res, sessionId, lastService, originalMessage, context);
   }
 
-  // If user was in cost options and now clarifies
+  // Enhanced context handling
   if (lastTopic === 'cost options' && (userMessage.includes('estimate') || userMessage.includes('get cost'))) {
     return await handleCostEstimate(req, res, sessionId, context.lastCostQuery || originalMessage, context);
   }
@@ -394,23 +396,23 @@ async function handleFollowUpQuestion(req, res, sessionId, originalMessage, user
     return await handleCostCalculator(res, sessionId, context);
   }
 
-  // If user was selecting cost type and now chooses one
+  // Intelligent cost type selection
   if (lastTopic === 'cost type selection') {
     return await handleSpecificCostSelection(req, res, sessionId, originalMessage, userMessage, context);
   }
 
-  // If user wants more details about a service
+  // Service details with expertise
   if (lastService && (userMessage.includes('more') || userMessage.includes('detail') || userMessage.includes('explain'))) {
     return await provideServiceDetails(res, sessionId, lastService, context);
   }
 
-  // Default to general query with enhanced context
+  // Default to intelligent general query
   return await handleGeneralQuery(req, res, sessionId, originalMessage, userMessage, context);
 }
 
-// UPDATED: Enhanced cost query handler - ASKS FOR SPECIFIC COST TYPE FIRST
+// AI Agent cost query handler
 async function handleCostQuery(req, res, sessionId, originalMessage, context) {
-  const costTypeResponse = `💰 **Construction Cost Estimation**\n\nI'd be happy to provide cost estimates! Which type of construction project are you interested in?`;
+  const costTypeResponse = `As a construction cost specialist, I'd be happy to provide detailed estimates! Which type of project are you considering?`;
 
   // Update context
   context.lastTopic = 'cost type selection';
@@ -419,7 +421,7 @@ async function handleCostQuery(req, res, sessionId, originalMessage, context) {
 
   const response = formatResponse(
     costTypeResponse,
-    ["🏠 Residential", "🏢 Commercial", "🏭 Industrial", "📊 All Costs", "🔗 Cost Calculator"],
+    ["🏠 Residential Project", "🏢 Commercial Building", "🏭 Industrial Facility", "📊 All Cost Types", "🔗 Detailed Calculator"],
     'cost_type_selection',
     null,
     sessionId
@@ -429,32 +431,32 @@ async function handleCostQuery(req, res, sessionId, originalMessage, context) {
   return res.json(response);
 }
 
-// NEW: Handle specific cost type selection
+// AI Agent cost type selection
 async function handleSpecificCostSelection(req, res, sessionId, originalMessage, userMessage, context) {
   let costResponse;
   let selectedType = '';
 
   if (userMessage.includes('residential') || userMessage.includes('house') || userMessage.includes('home') || userMessage.includes('🏠')) {
     selectedType = 'residential';
-    costResponse = `🏠 **Residential Construction Costs**\n\n${knowledge.company.name} current rates for residential projects:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏠 **Residential Construction Expertise**\n\nBased on our ${knowledge.projectPortfolio.residential} residential projects, here are current market rates:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nI recommend a consultation for precise pricing tailored to your specific needs.`;
   } 
   else if (userMessage.includes('commercial') || userMessage.includes('office') || userMessage.includes('business') || userMessage.includes('🏢')) {
     selectedType = 'commercial';
-    costResponse = `🏢 **Commercial Construction Costs**\n\n${knowledge.company.name} current rates for commercial projects:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏢 **Commercial Construction Insights**\n\nWith ${knowledge.projectPortfolio.commercial} commercial projects completed, our current rates are:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Commercial projects require careful planning. ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()} significantly impact final costs.*`;
   }
   else if (userMessage.includes('industrial') || userMessage.includes('factory') || userMessage.includes('warehouse') || userMessage.includes('🏭')) {
     selectedType = 'industrial';
-    costResponse = `🏭 **Industrial Construction Costs**\n\n${knowledge.company.name} current rates for industrial projects:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏭 **Industrial Construction Specialization**\n\nOur ${knowledge.projectPortfolio.industrial} industrial projects inform these current rates:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Industrial construction involves specialized considerations. ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()} are crucial factors.*`;
   }
   else if (userMessage.includes('all') || userMessage.includes('overview') || userMessage.includes('📊')) {
     selectedType = 'all';
-    costResponse = `💰 **Construction Cost Overview**\n\n${knowledge.company.name} Current Market Rates:\n\n🏠 **Residential:**\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n🏢 **Commercial:**\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n🏭 **Industrial:**\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*All costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
+    costResponse = `💰 **Construction Cost Overview**\n\nBased on our ${knowledge.projectPortfolio.totalCompleted} projects, here's a comprehensive cost overview:\n\n🏠 **Residential Expertise:**\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n🏢 **Commercial Experience:**\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n🏭 **Industrial Specialization:**\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Each project is unique. I recommend discussing your specific requirements with our team.*`;
   }
   else if (userMessage.includes('calculator') || userMessage.includes('calculate') || userMessage.includes('🔗')) {
     return await handleCostCalculator(res, sessionId, context);
   }
   else {
-    // If user says something else, show the cost type selection again
+    // Natural redirection
     return await handleCostQuery(req, res, sessionId, originalMessage, context);
   }
 
@@ -465,7 +467,7 @@ async function handleSpecificCostSelection(req, res, sessionId, originalMessage,
 
   const response = formatResponse(
     costResponse,
-    ["Calculate Cost", "Schedule Consultation", "Get Detailed Quote", "Other Cost Types"],
+    ["Get Detailed Calculation", "Schedule Expert Consultation", "Discuss Project Specifics"],
     'cost_estimation',
     { costType: selectedType },
     sessionId
@@ -475,18 +477,17 @@ async function handleSpecificCostSelection(req, res, sessionId, originalMessage,
   return res.json(response);
 }
 
-// NEW: Provide cost estimates for specific services
+// AI Agent service cost estimates
 async function provideServiceCostEstimate(res, sessionId, serviceType, originalMessage, context) {
   let costResponse;
 
   if (serviceType.includes('commercial')) {
-    costResponse = `🏢 **Commercial Construction Costs**\n\n${knowledge.company.name} current rates for commercial projects:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏢 **Commercial Construction Expertise**\n\nOur team has delivered ${knowledge.projectPortfolio.commercial} commercial projects. Current market rates:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Commercial projects require specialized planning. ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()} significantly impact budgets.*`;
   } else if (serviceType.includes('residential')) {
-    costResponse = `🏠 **Residential Construction Costs**\n\n${knowledge.company.name} current rates for residential projects:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏠 **Residential Construction Experience**\n\nWith ${knowledge.projectPortfolio.residential} residential projects completed:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Residential costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
   } else if (serviceType.includes('industrial')) {
-    costResponse = `🏭 **Industrial Construction Costs**\n\n${knowledge.company.name} current rates for industrial projects:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    costResponse = `🏭 **Industrial Construction Specialization**\n\nOur ${knowledge.projectPortfolio.industrial} industrial projects inform these rates:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Industrial projects have unique requirements affecting costs.*`;
   } else {
-    // General cost response
     costResponse = getCostFallbackResponse(originalMessage);
   }
 
@@ -497,7 +498,7 @@ async function provideServiceCostEstimate(res, sessionId, serviceType, originalM
 
   const response = formatResponse(
     costResponse,
-    ["Calculate Cost", "Schedule Consultation", "Get Detailed Quote"],
+    ["Detailed Cost Analysis", "Expert Consultation", "Project Planning"],
     'cost_estimation',
     { serviceType },
     sessionId
@@ -507,7 +508,7 @@ async function provideServiceCostEstimate(res, sessionId, serviceType, originalM
   return res.json(response);
 }
 
-// NEW: Provide detailed service information
+// AI Agent service details
 async function provideServiceDetails(res, sessionId, serviceType, context) {
   const service = knowledge.services.find(s => 
     s.name.toLowerCase().includes(serviceType)
@@ -515,14 +516,14 @@ async function provideServiceDetails(res, sessionId, serviceType, context) {
 
   let detailsResponse;
   if (service) {
-    detailsResponse = `🏗️ **${service.name} - Detailed Information**\n\n${service.description}\n\n**Key Features:**\n• Professional project management\n• Quality materials and workmanship\n• Timely completion\n• Compliance with building codes\n\nWe have completed ${getServiceProjectCount(service.name)} ${service.name.toLowerCase()} projects.`;
+    detailsResponse = `🏗️ **${service.name} - Our Expertise**\n\n${service.description}\n\n**Why Choose Meezan Developers:**\n• ${knowledge.projectPortfolio.totalCompleted} projects of experience\n• Professional project management\n• Quality materials and craftsmanship\n• Timely completion track record\n\nWe've successfully completed ${getServiceProjectCount(service.name)} ${service.name.toLowerCase()} projects.`;
   } else {
-    detailsResponse = `🏗️ **${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Construction**\n\nWe have extensive experience in ${serviceType} projects with ${getServiceProjectCount(serviceType)} completed.\n\nOur team ensures quality construction with professional project management and timely completion.`;
+    detailsResponse = `🏗️ **${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Construction**\n\nOur team has extensive experience in ${serviceType} construction with ${getServiceProjectCount(serviceType)} completed projects.\n\nWe ensure quality construction with professional project management and proven results.`;
   }
 
   const response = formatResponse(
     detailsResponse,
-    [`Cost for ${serviceType}`, `Schedule ${serviceType} consultation`, "View similar projects"],
+    [`Cost Analysis for ${serviceType}`, `Schedule ${serviceType} Consultation`, "View Similar Projects"],
     'service_details',
     { serviceType },
     sessionId
@@ -531,9 +532,9 @@ async function provideServiceDetails(res, sessionId, serviceType, context) {
   return res.json(response);
 }
 
-// Enhanced cost calculator handler
+// AI Agent cost calculator
 async function handleCostCalculator(res, sessionId, context) {
-  const calculatorResponse = `🔗 **Cost Calculator**\n\nFor detailed and accurate cost calculations, I recommend using our online cost calculator.\n\nIt will give you the most accurate estimate for your specific project based on:\n• Project type\n• Area requirements\n• Location factors\n• Quality preferences\n\nGet personalized pricing for your construction project!`;
+  const calculatorResponse = `🔗 **Detailed Cost Calculator**\n\nFor precise construction cost calculations, I recommend our specialized cost calculator.\n\nIt provides accurate estimates based on:\n• Specific project requirements\n• Local material costs\n• Construction methodology\n• Quality specifications\n\nThis tool incorporates our ${knowledge.projectPortfolio.totalCompleted} projects of experience for reliable pricing.`;
 
   // Update context
   context.lastTopic = 'cost calculator';
@@ -541,7 +542,7 @@ async function handleCostCalculator(res, sessionId, context) {
 
   const response = formatResponse(
     calculatorResponse,
-    ["Get Cost Estimate", "Schedule Consultation", "Our Services"],
+    ["Get Custom Estimate", "Expert Consultation", "Our Construction Services"],
     'redirect_calculator',
     { redirectUrl: CALCULATOR_URL },
     sessionId
@@ -550,13 +551,13 @@ async function handleCostCalculator(res, sessionId, context) {
   return res.json(response);
 }
 
-// Enhanced cost estimate handler (for direct cost estimate requests)
+// AI Agent cost estimate handler
 async function handleCostEstimate(req, res, sessionId, originalMessage, context) {
   try {
     const promptConfig = {
       contents: [{
         parts: [{
-          text: `${costEstimationPrompt}\n\nUser is asking about construction costs. They asked: "${originalMessage}"\n\nProvide a concise but helpful cost estimate response (3-5 lines max) using the actual cost data above. Focus on providing COST INFORMATION, not portfolio statistics.\n\nResponse:`
+          text: `${costEstimationPrompt}\n\nClient is asking about construction costs: "${originalMessage}"\n\nProvide a professional, helpful cost estimate response (3-5 lines) using our actual project data. Sound like a construction expert, not an AI. Focus on practical cost guidance.\n\nResponse:`
         }]
       }],
       generationConfig: {
@@ -578,7 +579,7 @@ async function handleCostEstimate(req, res, sessionId, originalMessage, context)
 
     const response = formatResponse(
       costResponse,
-      ["Calculate Cost", "Schedule Consultation", "Get Detailed Quote"],
+      ["Detailed Cost Analysis", "Schedule Expert Consultation", "Project Planning"],
       'cost_estimation',
       null,
       sessionId
@@ -588,12 +589,12 @@ async function handleCostEstimate(req, res, sessionId, originalMessage, context)
     return res.json(response);
 
   } catch (error) {
-    console.error('❌ Cost Estimation Error:', error);
+    console.error('❌ AI Agent Cost Estimation Error:', error);
     
     const fallbackCostResponse = getCostFallbackResponse(originalMessage);
     const response = formatResponse(
       fallbackCostResponse,
-      ["Calculate Cost", "Schedule Consultation", "Get Detailed Quote"],
+      ["Detailed Cost Analysis", "Schedule Expert Consultation", "Project Planning"],
       'cost_estimation_fallback',
       null,
       sessionId
@@ -603,9 +604,9 @@ async function handleCostEstimate(req, res, sessionId, originalMessage, context)
   }
 }
 
-// Enhanced portfolio handler
+// AI Agent portfolio handler
 async function handlePortfolioQuery(res, sessionId, context) {
-  const portfolioResponse = `🏗️ **${knowledge.company.name} Project Portfolio**\n\nWith ${knowledge.company.yearsExperience} of experience, we've successfully delivered:\n\n📊 Project Statistics:\n• ${knowledge.projectPortfolio.totalCompleted} - Total Projects\n• ${knowledge.projectPortfolio.residential} - Residential Projects\n• ${knowledge.projectPortfolio.commercial} - Commercial Projects\n• ${knowledge.projectPortfolio.industrial} - Industrial Projects\n• ${knowledge.projectPortfolio.religious} - Religious Buildings\n• ${knowledge.projectPortfolio.infrastructure} - Infrastructure Projects\n• ${knowledge.projectPortfolio.educational} - Educational Facilities\n• ${knowledge.projectPortfolio.roads} - Road Projects\n\nWant to see specific project types or schedule a consultation?`;
+  const portfolioResponse = `🏗️ **Meezan Developers Project Portfolio**\n\nWith ${knowledge.company.yearsExperience} of construction excellence, we've successfully delivered:\n\n📊 **Our Construction Expertise:**\n• ${knowledge.projectPortfolio.totalCompleted} - Total Projects Completed\n• ${knowledge.projectPortfolio.residential} - Residential Projects\n• ${knowledge.projectPortfolio.commercial} - Commercial Buildings\n• ${knowledge.projectPortfolio.industrial} - Industrial Facilities\n• ${knowledge.projectPortfolio.religious} - Religious Structures\n• ${knowledge.projectPortfolio.infrastructure} - Infrastructure Projects\n• ${knowledge.projectPortfolio.educational} - Educational Facilities\n• ${knowledge.projectPortfolio.roads} - Road Construction Projects\n\nOur portfolio reflects our commitment to quality and client satisfaction across all construction sectors.`;
 
   // Update context
   context.lastTopic = 'portfolio';
@@ -613,7 +614,7 @@ async function handlePortfolioQuery(res, sessionId, context) {
 
   const response = formatResponse(
     portfolioResponse,
-    ["Residential projects", "Commercial projects", "Schedule consultation"],
+    ["Residential Expertise", "Commercial Experience", "Schedule Project Consultation"],
     'portfolio_view',
     null,
     sessionId
@@ -622,20 +623,24 @@ async function handlePortfolioQuery(res, sessionId, context) {
   return res.json(response);
 }
 
-// Enhanced greeting handler
+// AI Agent greeting handler
 async function handleGreeting(req, res, sessionId, userMessage, context) {
   let reply;
   
   if (context.interactionCount <= 1) {
-    reply = `Hello! Welcome to ${knowledge.company.name}. With ${knowledge.company.yearsExperience} of construction experience and ${knowledge.projectPortfolio.totalCompleted} projects completed, how can I assist with your construction project today?`;
+    reply = generateNaturalResponse('greeting', {
+      yearsExperience: knowledge.company.yearsExperience,
+      totalCompleted: knowledge.projectPortfolio.totalCompleted
+    });
   } else {
-    const previousTopic = context.lastTopic ? ` regarding ${context.lastTopic}` : '';
-    reply = `Hello again! How can I help you today${previousTopic}?`;
+    const previousTopic = context.lastTopic ? ` about ${context.lastTopic}` : '';
+    const personalized = context.clientName ? `, ${context.clientName}` : '';
+    reply = `Welcome back${personalized}! I'm ready to continue our discussion${previousTopic}. What would you like to explore next?`;
   }
 
   const response = formatResponse(
     reply,
-    ["Schedule meeting", "Our services", "Cost estimation"],
+    ["Schedule Consultation", "Our Construction Services", "Cost Estimation"],
     'greeting',
     null,
     sessionId
@@ -645,13 +650,13 @@ async function handleGreeting(req, res, sessionId, userMessage, context) {
   return res.json(response);
 }
 
-// Enhanced about query handler
+// AI Agent about handler
 async function handleAboutQuery(res, sessionId, context) {
-  const aboutResponse = `I'm an AI Construction Consultant for ${knowledge.company.name}! 🤖\n\nI help with scheduling meetings, cost estimates, project guidance, and answering construction questions.\n\n${knowledge.company.name} has ${knowledge.company.yearsExperience} of experience with ${knowledge.projectPortfolio.totalCompleted} projects completed.\n\nHow can I assist you today?`;
+  const aboutResponse = `I'm your AI Construction Consultant at Meezan Developers! 🤖\n\nI combine construction expertise with AI technology to help you plan and execute successful projects.\n\n**What I can do:**\n• Provide construction cost estimates based on ${knowledge.projectPortfolio.totalCompleted} projects\n• Schedule consultations with our expert team\n• Guide you through project planning\n• Answer construction-related questions\n\n${knowledge.company.name} brings ${knowledge.company.yearsExperience} of construction excellence to every project.`;
 
   const response = formatResponse(
     aboutResponse,
-    ["Schedule meeting", "Cost estimation", "Our services"],
+    ["Schedule Consultation", "Construction Costs", "Our Services"],
     'about_info',
     null,
     sessionId
@@ -660,23 +665,23 @@ async function handleAboutQuery(res, sessionId, context) {
   return res.json(response);
 }
 
-// Enhanced service query handler
+// AI Agent service query handler
 async function handleServiceQuery(res, sessionId, userMessage, context) {
   let reply;
   let specificService = null;
 
   // Check for specific service types
   const serviceKeywords = {
-    'residential': ['house', 'home', 'residential', 'villa', 'apartment'],
-    'commercial': ['commercial', 'office', 'business', 'shop', 'mall'],
-    'industrial': ['industrial', 'factory', 'warehouse', 'manufacturing'],
-    'religious': ['mosque', 'church', 'temple', 'religious'],
-    'infrastructure': ['road', 'bridge', 'infrastructure', 'highway'],
-    'educational': ['school', 'college', 'university', 'educational'],
+    'residential': ['house', 'home', 'residential', 'villa', 'apartment', 'housing'],
+    'commercial': ['commercial', 'office', 'business', 'shop', 'mall', 'retail'],
+    'industrial': ['industrial', 'factory', 'warehouse', 'manufacturing', 'plant'],
+    'religious': ['mosque', 'church', 'temple', 'religious', 'worship'],
+    'infrastructure': ['road', 'bridge', 'infrastructure', 'highway', 'utilities'],
+    'educational': ['school', 'college', 'university', 'educational', 'campus'],
     'healthcare': ['hospital', 'clinic', 'medical', 'healthcare'],
-    'sports': ['sports', 'stadium', 'recreational', 'gym'],
-    'renovation': ['renovation', 'remodel', 'upgrade', 'renovate'],
-    'project management': ['project management', 'project oversight', 'timeline', 'budget']
+    'sports': ['sports', 'stadium', 'recreational', 'gym', 'arena'],
+    'renovation': ['renovation', 'remodel', 'upgrade', 'renovate', 'refurbish'],
+    'project management': ['project management', 'project oversight', 'timeline', 'budget', 'coordination']
   };
 
   // Find if user is asking about a specific service
@@ -690,11 +695,11 @@ async function handleServiceQuery(res, sessionId, userMessage, context) {
   }
 
   if (specificService) {
-    reply = `🏗️ **${specificService.name}**\n${specificService.description}\n\nWe have extensive experience in ${specificService.name.toLowerCase()} with ${getServiceProjectCount(specificService.name)} completed.\n\nWant to know about costs or schedule a consultation for your ${specificService.name.toLowerCase()} project?`;
+    reply = `🏗️ **${specificService.name} - Our Specialization**\n${specificService.description}\n\nWe bring ${getServiceProjectCount(specificService.name)} projects of experience to every ${specificService.name.toLowerCase()} undertaking.\n\nInterested in costs or scheduling a consultation for your ${specificService.name.toLowerCase()} project?`;
   } else {
     // General services overview
     const topServices = knowledge.services.slice(0, 5);
-    reply = `🏗️ **${knowledge.company.name} Services**\n\nWe offer comprehensive construction services including:\n${topServices.map(service => `• ${service.name}`).join('\n')}\n\nWith ${knowledge.company.yearsExperience} experience and ${knowledge.projectPortfolio.totalCompleted} projects completed.\n\nWhich specific service interests you?`;
+    reply = `🏗️ **Meezan Developers Construction Services**\n\nWe offer comprehensive construction solutions including:\n${topServices.map(service => `• ${service.name}`).join('\n')}\n\nWith ${knowledge.company.yearsExperience} years and ${knowledge.projectPortfolio.totalCompleted} projects of experience, we deliver quality across all construction sectors.\n\nWhich area interests you most?`;
   }
 
   // Update context with service information
@@ -703,8 +708,8 @@ async function handleServiceQuery(res, sessionId, userMessage, context) {
   context.state = conversationStates.SERVICE_INQUIRY;
 
   const suggestions = specificService ? 
-    [`Cost for ${specificService.name}`, `Schedule ${specificService.name} consultation`, "View portfolio"] :
-    ["Residential projects", "Commercial projects", "Industrial projects"];
+    [`Cost Analysis for ${specificService.name}`, `Schedule ${specificService.name} Consultation`, "View Our Portfolio"] :
+    ["Residential Construction", "Commercial Projects", "Industrial Facilities"];
 
   const response = formatResponse(
     reply,
@@ -717,30 +722,30 @@ async function handleServiceQuery(res, sessionId, userMessage, context) {
   return res.json(response);
 }
 
-// Enhanced general query handler with context awareness
+// AI Agent general query handler
 async function handleGeneralQuery(req, res, sessionId, message, userMessage, context) {
   // Enhanced context detection
   if (userMessage.includes('build') || userMessage.includes('construct') || userMessage.includes('project')) {
     context.lastTopic = 'construction projects';
     context.state = conversationStates.PROJECT_DETAILS;
-  } else if (userMessage.includes('time') || userMessage.includes('duration')) {
+  } else if (userMessage.includes('time') || userMessage.includes('duration') || userMessage.includes('timeline')) {
     context.lastTopic = 'project timeline';
-  } else if (userMessage.includes('material') || userMessage.includes('quality')) {
+  } else if (userMessage.includes('material') || userMessage.includes('quality') || userMessage.includes('specification')) {
     context.lastTopic = 'construction materials';
-  } else if (userMessage.includes('cost') || userMessage.includes('price') || userMessage.includes('estimate')) {
+  } else if (userMessage.includes('cost') || userMessage.includes('price') || userMessage.includes('estimate') || userMessage.includes('budget')) {
     context.lastTopic = 'cost estimation';
     context.state = conversationStates.COST_DISCUSSION;
   }
 
-  // Enhanced prompt with conversation context
+  // Enhanced prompt with AI Agent personality
   const contextPrompt = context.lastTopic ? 
-    `Previous conversation was about: ${context.lastTopic}. Current user message: ${message}` : 
-    `User message: ${message}`;
+    `Previous discussion was about: ${context.lastTopic}. Current client message: ${message}` : 
+    `Client message: ${message}`;
 
   const promptConfig = {
     contents: [{
       parts: [{
-        text: `${systemPrompt}\n\nCONVERSATION CONTEXT: ${contextPrompt}\n\nKeep response concise (2-4 lines max). Maintain conversation flow naturally.\n\nAI:`
+        text: `${systemPrompt}\n\nCONVERSATION CONTEXT: ${contextPrompt}\n\nRespond as a knowledgeable construction consultant. Be helpful, professional, and maintain natural conversation flow.\n\nAI Consultant:`
       }]
     }],
     generationConfig: {
@@ -769,7 +774,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
     return res.json(response);
 
   } catch (error) {
-    console.error('General Query Error:', error);
+    console.error('AI Agent General Query Error:', error);
     
     const fallbackResponse = getSmartFallbackResponse(userMessage, context);
     const response = formatResponse(
@@ -784,21 +789,477 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
   }
 }
 
-// ==================== ENHANCED HELPER FUNCTIONS ====================
+// ==================== AI AGENT MEETING HANDLER ====================
 
-// Enhanced helper functions with better detection
+async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
+  let meetingState = meetingStates.get(sessionId) || {
+    step: 0,
+    data: {},
+    createdAt: new Date().toISOString(),
+    conversationFlow: []
+  };
+
+  console.log('🤖 AI Agent - Meeting Step:', meetingState.step, 'User:', userMessage);
+
+  // Update context
+  context.lastTopic = 'meeting booking';
+  context.state = conversationStates.MEETING_BOOKING;
+
+  // Store conversation for context
+  meetingState.conversationFlow.push({
+    user: userMessage,
+    timestamp: new Date().toISOString()
+  });
+
+  // Step 0: Natural conversation start
+  if (meetingState.step === 0) {
+    meetingState.step = 1;
+    meetingStates.set(sessionId, meetingState);
+    
+    const response = formatResponse(
+      generateNaturalResponse('meeting_start', {
+        totalCompleted: knowledge.projectPortfolio.totalCompleted
+      }),
+      [],
+      'get_name_natural',
+      null,
+      sessionId
+    );
+    
+    return res.json(response);
+  }
+
+  // Step 1: Get name with personalization
+  if (meetingState.step === 1) {
+    const userName = req.body.message.trim();
+    meetingState.data.name = userName;
+    context.clientName = userName; // Store for personalization
+    meetingState.step = 2;
+    meetingStates.set(sessionId, meetingState);
+    
+    const response = formatResponse(
+      generateNaturalResponse('project_type', { name: userName }),
+      ["Residential", "Commercial", "Industrial", "General Consultation"],
+      'get_project_type_natural',
+      null,
+      sessionId
+    );
+    
+    return res.json(response);
+  }
+
+  // Step 2: Get project type with expertise
+  if (meetingState.step === 2) {
+    const userEmail = req.body.message.trim();
+    
+    if (!isValidEmail(userEmail)) {
+      return res.json(formatResponse(
+        "To ensure we can send your meeting confirmation and project details, could you please provide a valid email address?",
+        ["Try again", "Contact via phone"],
+        'get_email_natural',
+        null,
+        sessionId
+      ));
+    }
+
+    meetingState.data.email = userEmail;
+    meetingState.step = 3;
+    meetingStates.set(sessionId, meetingState);
+    
+    const response = formatResponse(
+      `Perfect! Now, ${meetingState.data.name}, what type of construction project are you planning? This helps me connect you with the right specialists.`,
+      ["Residential", "Commercial", "Industrial", "General Consultation"],
+      'get_project_type',
+      null,
+      sessionId
+    );
+    
+    return res.json(response);
+  }
+
+  // Step 3: Get project type and show calendar expertise
+  if (meetingState.step === 3) {
+    const projectType = req.body.message.trim();
+    meetingState.data.projectType = projectType;
+    meetingState.step = 4;
+    meetingStates.set(sessionId, meetingState);
+
+    // Generate available dates with calendar check
+    const availableDates = calendarService.generateAvailableDates();
+    
+    if (availableDates.length === 0) {
+      // No available dates - expert handling
+      const nextSlots = calendarService.getNextAvailableSlots(3);
+      let reply = `I've checked our specialists' calendars, and unfortunately, all consultation slots for the coming week are fully booked. `;
+      
+      if (nextSlots.length > 0) {
+        reply += `However, I found these available slots coming up:\n\n`;
+        nextSlots.forEach(slot => {
+          reply += `• ${slot.date} at ${slot.time}\n`;
+        });
+        reply += `\nWould you like me to reserve one of these times for you?`;
+        
+        meetingState.step = 4.5;
+        meetingStates.set(sessionId, meetingState);
+        
+        return res.json(formatResponse(
+          reply,
+          ["Reserve alternative slot", "Check next week", "Contact me when available"],
+          'no_availability_expert',
+          { nextSlots },
+          sessionId
+        ));
+      } else {
+        return res.json(formatResponse(
+          `Our consultation schedule is currently fully booked. For urgent project inquiries, I recommend contacting our team directly at ${knowledge.company.contact.phone}.`,
+          ["Contact via phone", "Send project details", "Try again later"],
+          'fully_booked_expert',
+          null,
+          sessionId
+        ));
+      }
+    }
+
+    const dateSuggestions = availableDates.map(date => `${date.display} (${date.availability})`);
+    
+    const response = formatResponse(
+      generateNaturalResponse('date_selection', { projectType: projectType }),
+      dateSuggestions,
+      'get_date_natural',
+      { availableDates },
+      sessionId
+    );
+    
+    return res.json(response);
+  }
+
+  // ... [Rest of the meeting handler remains the same but with AI Agent personality]
+  // Step 4.5: Handle alternative dates
+  if (meetingState.step === 4.5) {
+    const userResponse = userMessage.toLowerCase();
+    
+    if (userResponse.includes('reserve') || userResponse.includes('alternative') || userResponse.includes('yes')) {
+      const nextSlots = calendarService.getNextAvailableSlots(5);
+      
+      if (nextSlots.length > 0) {
+        const dateSuggestions = nextSlots.map(slot => `${slot.date} at ${slot.time}`);
+        
+        meetingState.step = 4;
+        meetingState.alternativeDates = nextSlots;
+        meetingStates.set(sessionId, meetingState);
+        
+        return res.json(formatResponse(
+          `Excellent! Here are the available consultation slots I found:\n\n${nextSlots.map(slot => `• ${slot.date} at ${slot.time}`).join('\n')}\n\nWhich one works best for your schedule?`,
+          dateSuggestions,
+          'get_alternative_date_natural',
+          { alternativeSlots: nextSlots },
+          sessionId
+        ));
+      } else {
+        return res.json(formatResponse(
+          `I apologize, but those slots were just booked. For immediate assistance with your ${meetingState.data.projectType} project, please contact our team at ${knowledge.company.contact.phone}.`,
+          ["Contact team directly", "Try again tomorrow", "Send project details"],
+          'no_slots_available_expert',
+          null,
+          sessionId
+        ));
+      }
+    } else {
+      meetingStates.delete(sessionId);
+      return res.json(formatResponse(
+        "No problem at all! Feel free to reach out when you're ready to schedule your consultation. We're here to help bring your construction vision to life.",
+        ["Schedule later", "Our services", "Cost estimation"],
+        'booking_canceled_natural',
+        null,
+        sessionId
+      ));
+    }
+  }
+
+  // Step 4: Get date with intelligent handling
+  if (meetingState.step === 4) {
+    const selectedDateInput = req.body.message.trim();
+    
+    // Extract date from the input
+    let selectedDate;
+    if (meetingState.alternativeDates) {
+      const selectedSlot = meetingState.alternativeDates.find(slot => 
+        `${slot.date} at ${slot.time}` === selectedDateInput
+      );
+      if (selectedSlot) {
+        selectedDate = selectedSlot.fullDate;
+        meetingState.data.time = selectedSlot.time;
+      }
+    }
+    
+    if (!selectedDate) {
+      const availableDates = meetingState.availableDates || calendarService.generateAvailableDates();
+      const selectedDateObj = availableDates.find(date => 
+        date.display === selectedDateInput || date.value === selectedDateInput
+      );
+      
+      if (!selectedDateObj) {
+        return res.json(formatResponse(
+          "To ensure I book the right time, could you please select from the available dates?",
+          availableDates.map(date => `${date.display} (${date.availability})`),
+          'get_date_natural',
+          { availableDates },
+          sessionId
+        ));
+      }
+      selectedDate = selectedDateObj.value;
+    }
+
+    meetingState.data.date = selectedDate;
+    meetingState.step = 5;
+    meetingStates.set(sessionId, meetingState);
+
+    // Generate available times for the selected date
+    const availableTimes = calendarService.generateAvailableTimes(selectedDate);
+    const availableTimeSlots = availableTimes.filter(time => time.isAvailable);
+    
+    if (availableTimeSlots.length === 0) {
+      const nextDates = calendarService.generateAvailableDates();
+      
+      return res.json(formatResponse(
+        `It looks like all consultation slots for ${selectedDateInput} have been booked. Our specialists have availability on these dates instead:`,
+        nextDates.map(date => `${date.display} (${date.availability})`),
+        'get_date_natural',
+        { availableDates: nextDates },
+        sessionId
+      ));
+    }
+
+    const timeSuggestions = availableTimeSlots.map(time => time.display);
+    
+    // If time was pre-selected from alternative dates
+    if (meetingState.data.time) {
+      meetingState.step = 6;
+      meetingStates.set(sessionId, meetingState);
+      
+      return res.json(formatResponse(
+        `Perfect! Let me confirm your consultation details:\n\n• **Date:** ${selectedDateInput}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n• **With:** ${meetingState.data.name}\n\nDoes this look correct for your ${meetingState.data.projectType} project consultation?`,
+        ["Yes, that's perfect", "No, let me make changes"],
+        'confirm_meeting_natural',
+        { meeting: meetingState.data },
+        sessionId
+      ));
+    }
+
+    return res.json(formatResponse(
+      `Great choice! What time on ${selectedDateInput} works best for your ${meetingState.data.projectType} project consultation?`,
+      timeSuggestions,
+      'get_time_natural',
+      { availableTimes: availableTimeSlots },
+      sessionId
+    ));
+  }
+
+  // Step 5: Get time with professional handling
+  if (meetingState.step === 5) {
+    const selectedTime = req.body.message.trim();
+    const selectedDate = meetingState.data.date;
+    
+    // Check if the selected time slot is still available
+    const isAvailable = calendarService.isSlotAvailable(selectedDate, selectedTime);
+    
+    if (!isAvailable) {
+      const availableTimes = calendarService.generateAvailableTimes(selectedDate);
+      const availableTimeSlots = availableTimes.filter(time => time.isAvailable);
+      
+      return res.json(formatResponse(
+        `That time slot was just booked by another client. Here are the remaining available times on ${selectedDateInput}:`,
+        availableTimeSlots.map(time => time.display),
+        'get_time_natural',
+        { availableTimes: availableTimeSlots },
+        sessionId
+      ));
+    }
+
+    meetingState.data.time = selectedTime;
+    meetingState.step = 6;
+    meetingStates.set(sessionId, meetingState);
+
+    return res.json(formatResponse(
+      `Excellent! Here's what I have for your consultation:\n\n• **Name:** ${meetingState.data.name}\n• **Project:** ${meetingState.data.projectType}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n\nReady to confirm and secure this time with our ${meetingState.data.projectType} specialists?`,
+      ["Yes, confirm and book", "No, I need to make changes"],
+      'confirm_meeting_natural',
+      { meeting: meetingState.data },
+      sessionId
+    ));
+  }
+
+  // Step 6: Confirm meeting with professional assurance
+  if (meetingState.step === 6) {
+    const userResponse = userMessage.toLowerCase();
+    
+    if (userResponse.includes('yes') || userResponse.includes('confirm') || userResponse.includes('book')) {
+      // Final availability check before booking
+      const isAvailable = calendarService.isSlotAvailable(meetingState.data.date, meetingState.data.time);
+      
+      if (!isAvailable) {
+        const nextDates = calendarService.generateAvailableDates();
+        
+        return res.json(formatResponse(
+          `That time slot was just secured by another client. Here are our available consultation dates:`,
+          nextDates.map(date => `${date.display} (${date.availability})`),
+          'get_date_natural',
+          { availableDates: nextDates },
+          sessionId
+        ));
+      }
+
+      // Generate meeting ID and book the slot
+      meetingState.data.id = 'MTG_' + Date.now();
+      meetingState.data.timestamp = new Date().toISOString();
+
+      // Book the slot in calendar
+      const bookingResult = await calendarService.bookSlot({
+        date: meetingState.data.date,
+        time: meetingState.data.time,
+        meetingId: meetingState.data.id
+      });
+
+      if (!bookingResult.success) {
+        return res.json(formatResponse(
+          `I apologize, but that time slot is no longer available. Let's find another time that works for your ${meetingState.data.projectType} project.`,
+          ["Choose different time", "Select another date", "Contact support"],
+          'booking_failed_expert',
+          null,
+          sessionId
+        ));
+      }
+
+      meetingState.step = 7;
+      meetingStates.set(sessionId, meetingState);
+
+      return res.json(formatResponse(
+        `✅ **Consultation Confirmed!**\n\nI've secured your time with our ${meetingState.data.projectType} specialists.\n\nShall I send the confirmation details to ${meetingState.data.email}?`,
+        ["Yes, send confirmation", "No, cancel booking"],
+        'confirm_email_sending_natural',
+        { meeting: meetingState.data, bookingId: bookingResult.bookingId },
+        sessionId
+      ));
+    } else {
+      // Intelligent change handling
+      if (userResponse.includes('name')) {
+        meetingState.step = 1;
+      } else if (userResponse.includes('email')) {
+        meetingState.step = 2;
+      } else if (userResponse.includes('project')) {
+        meetingState.step = 3;
+      } else if (userResponse.includes('date')) {
+        meetingState.step = 4;
+      } else if (userResponse.includes('time')) {
+        meetingState.step = 5;
+      } else {
+        meetingState.step = 4;
+      }
+      
+      meetingStates.set(sessionId, meetingState);
+      
+      const stepMessages = {
+        1: "Let's update your name. What should I call you?",
+        2: "What's the best email to send your confirmation to?",
+        3: "What type of construction project are you planning?",
+        4: "Which consultation date works best for you?",
+        5: "What time would you prefer for your consultation?"
+      };
+      
+      return res.json(formatResponse(
+        stepMessages[meetingState.step] || "Let's start over. What's your name?",
+        [],
+        `get_${['name', 'email', 'project_type', 'date', 'time'][meetingState.step - 1]}_natural`,
+        null,
+        sessionId
+      ));
+    }
+  }
+
+  // Step 7: Send confirmation with professional touch
+  if (meetingState.step === 7) {
+    const userResponse = userMessage.toLowerCase();
+    
+    if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
+      try {
+        console.log('🤖 AI Agent sending confirmation email...');
+        
+        const emailResult = await resendEmailService.sendMeetingConfirmation(meetingState.data);
+        
+        if (emailResult.success) {
+          console.log('✅ AI Agent email sent successfully!');
+          
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `🎉 **Consultation Booked Successfully!**\n\n✅ Confirmation sent to ${meetingState.data.email}\n✅ Time secured with our ${meetingState.data.projectType} specialists\n✅ Our team will prepare for your project discussion\n\n**Meeting ID:** ${meetingState.data.id}\n**Date:** ${meetingState.data.date}\n**Time:** ${meetingState.data.time}\n\nWe look forward to helping bring your construction vision to life!`,
+            ["Schedule another consultation", "Our construction services", "Project cost estimation"],
+            'meeting_completed_expert',
+            { 
+              meetingId: meetingState.data.id, 
+              emailSent: true,
+              messageIds: {
+                client: emailResult.clientMessageId,
+                company: emailResult.companyMessageId
+              }
+            },
+            sessionId
+          ));
+        } else {
+          console.log('⚠️ AI Agent email failed:', emailResult.error);
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `✅ **Consultation Confirmed!**\n\nYour meeting is scheduled for ${meetingState.data.date} at ${meetingState.data.time}.\n\n**Meeting ID:** ${meetingState.data.id}\n\nOur team will contact you directly to confirm and discuss your ${meetingState.data.projectType} project.`,
+            ["Schedule another meeting", "Our services", "Cost estimation"],
+            'meeting_completed_fallback_expert',
+            { meetingId: meetingState.data.id, emailSent: false },
+            sessionId
+          ));
+        }
+      } catch (error) {
+        console.error('❌ AI Agent email process error:', error);
+        meetingStates.delete(sessionId);
+        
+        return res.json(formatResponse(
+          `✅ **Consultation Scheduled!**\n\nYour meeting has been confirmed. Our construction team will contact you shortly to discuss your ${meetingState.data.projectType} project.\n\n**Meeting ID:** ${meetingState.data.id}`,
+          ["Schedule another consultation", "Our construction services", "Project planning"],
+          'meeting_completed_fallback_expert',
+          { meetingId: meetingState.data.id, emailSent: false },
+          sessionId
+        ));
+      }
+    } else {
+      // User canceled - professional handling
+      await calendarService.cancelBooking(meetingState.data.date, meetingState.data.time);
+      meetingStates.delete(sessionId);
+      
+      return res.json(formatResponse(
+        "I've cancelled the booking and freed up the time slot for other clients. Feel free to reach out when you're ready to schedule your construction consultation.",
+        ["Schedule consultation", "Our services", "Cost estimation"],
+        'meeting_canceled_professional',
+        null,
+        sessionId
+      ));
+    }
+  }
+}
+
+// ==================== AI AGENT HELPER FUNCTIONS ====================
+
+// Enhanced helper functions
 function isGreeting(message) {
-  const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'salam'];
+  const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'salam', 'greetings'];
   return greetings.some(greeting => message.includes(greeting));
 }
 
 function isAboutQuery(message) {
-  const aboutKeywords = ['who are you', 'what are you', 'tell me about you', 'about yourself', 'your role', 'what do you do'];
+  const aboutKeywords = ['who are you', 'what are you', 'tell me about you', 'about yourself', 'your role', 'what do you do', 'are you ai', 'are you bot'];
   return aboutKeywords.some(keyword => message.includes(keyword));
 }
 
 function isPortfolioQuery(message) {
-  const portfolioKeywords = ['portfolio', 'projects', 'work', 'completed projects', 'experience', 'statistics', 'completed work'];
+  const portfolioKeywords = ['portfolio', 'projects', 'completed work', 'experience', 'past work', 'our work', 'completed projects'];
   const costWords = ['cost', 'price', 'estimate', 'budget', 'how much'];
   const hasCostWords = costWords.some(word => message.includes(word));
   
@@ -806,19 +1267,20 @@ function isPortfolioQuery(message) {
 }
 
 function isServiceQuery(message) {
-  const serviceKeywords = ['service', 'services', 'what do you do', 'offer', 'provide', 'build', 'construct', 'develop'];
+  const serviceKeywords = ['service', 'services', 'what do you do', 'offer', 'provide', 'build', 'construct', 'develop', 'specialize'];
   return serviceKeywords.some(keyword => message.includes(keyword));
 }
 
 function isCostQuery(message) {
-  const costKeywords = ['cost', 'price', 'how much', 'estimate', 'budget', 'pricing', 'rate', 'charges', 'quotation', 'investment'];
+  const costKeywords = ['cost', 'price', 'how much', 'estimate', 'budget', 'pricing', 'rate', 'charges', 'quotation', 'investment', 'expense'];
   
   const projectCostPatterns = [
     'industrial.*cost', 'residential.*cost', 'commercial.*cost',
     'industrial.*price', 'residential.*price', 'commercial.*price',
     'industrial.*estimate', 'residential.*estimate', 'commercial.*estimate',
     'how much.*industrial', 'how much.*residential', 'how much.*commercial',
-    'what.*cost.*industrial', 'what.*price.*residential', 'how much to build'
+    'what.*cost.*industrial', 'what.*price.*residential', 'how much to build',
+    'construction cost', 'building price', 'project budget'
   ];
   
   const hasCostKeywords = costKeywords.some(keyword => message.includes(keyword));
@@ -852,295 +1314,89 @@ function getCostFallbackResponse(userMessage) {
   const lowerMessage = userMessage.toLowerCase();
   
   if (lowerMessage.includes('industrial') || lowerMessage.includes('factory') || lowerMessage.includes('warehouse')) {
-    return `🏭 **Industrial Construction Costs**\n\n${knowledge.company.name} current rates for industrial projects:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    return `🏭 **Industrial Construction Expertise**\n\nBased on our ${knowledge.projectPortfolio.industrial} industrial projects:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Industrial costs depend on specialized requirements and ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
   }
   
   if (lowerMessage.includes('residential') || lowerMessage.includes('house') || lowerMessage.includes('home')) {
-    return `🏠 **Residential Construction Costs**\n\n${knowledge.company.name} current rates for residential projects:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    return `🏠 **Residential Construction Experience**\n\nFrom ${knowledge.projectPortfolio.residential} residential projects:\n\n• Grey Structure: ${knowledge.constructionCosts.residential.greyStructure}\n• Finished: ${knowledge.constructionCosts.residential.finished}\n• Premium: ${knowledge.constructionCosts.residential.premium}\n\n*Residential pricing varies based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
   }
   
   if (lowerMessage.includes('commercial') || lowerMessage.includes('office') || lowerMessage.includes('business')) {
-    return `🏢 **Commercial Construction Costs**\n\n${knowledge.company.name} current rates for commercial projects:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Costs vary based on ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*\n\nFor accurate pricing, use our cost calculator or schedule a consultation.`;
+    return `🏢 **Commercial Construction Specialization**\n\nOur ${knowledge.projectPortfolio.commercial} commercial projects inform:\n\n• Basic: ${knowledge.constructionCosts.commercial.basic}\n• Standard: ${knowledge.constructionCosts.commercial.standard}\n• Premium: ${knowledge.constructionCosts.commercial.premium}\n\n*Commercial projects require detailed planning considering ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
   }
   
-  return `💰 **Construction Cost Overview**\n\n${knowledge.company.name} Current Rates:\n\n🏠 Residential: ${knowledge.constructionCosts.residential.greyStructure} (Grey Structure)\n🏢 Commercial: ${knowledge.constructionCosts.commercial.basic} (Basic)\n🏭 Industrial: ${knowledge.constructionCosts.industrial.basic} (Basic)\n\n*Costs depend on: ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}*\n\nFor precise calculations, use our cost calculator or schedule a consultation.`;
+  return `💰 **Construction Cost Guidance**\n\nBased on ${knowledge.projectPortfolio.totalCompleted} projects:\n\n🏠 Residential: ${knowledge.constructionCosts.residential.greyStructure} (Grey Structure)\n🏢 Commercial: ${knowledge.constructionCosts.commercial.basic} (Basic)\n🏭 Industrial: ${knowledge.constructionCosts.industrial.basic} (Basic)\n\n*All construction costs depend on: ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}*\n\nI recommend a detailed consultation for accurate project pricing.`;
 }
 
 function getSmartFallbackResponse(userMessage, context) {
   // Use context to provide better fallback responses
   if (context.lastTopic === 'our services' && (userMessage.includes('cost') || userMessage.includes('price'))) {
-    return `I'd be happy to provide cost estimates for ${context.lastService || 'that service'}! Would you like me to give you current market rates or use our cost calculator for precise estimates?`;
+    return `I'd be happy to provide detailed cost estimates for ${context.lastService || 'that service'}! Would you like current market rates or a customized calculation?`;
   }
   
   if (userMessage.includes('cost') || userMessage.includes('price') || userMessage.includes('estimate')) {
-    return `I can help with construction costs! You can use our cost calculator for precise estimates or I can provide general market rates. Which would you prefer?`;
+    return `I can provide construction cost guidance! Our team uses detailed calculations or I can share general market rates. Which would be more helpful for your project planning?`;
   }
   
-  if (userMessage.includes('project') || userMessage.includes('build')) {
-    return `${knowledge.company.name} handles residential, commercial, and industrial projects. ${knowledge.projectPortfolio.totalCompleted} projects completed. Tell me about your project!`;
+  if (userMessage.includes('project') || userMessage.includes('build') || userMessage.includes('construct')) {
+    return `${knowledge.company.name} specializes in residential, commercial, and industrial construction. With ${knowledge.projectPortfolio.totalCompleted} projects completed, we have the expertise to bring your vision to life. Tell me about your project!`;
   }
   
-  if (userMessage.includes('service')) {
-    return `We offer construction services for residential, commercial, industrial, and specialized projects. Which type interests you?`;
+  if (userMessage.includes('service') || userMessage.includes('offer')) {
+    return `We offer comprehensive construction services for residential, commercial, industrial, and specialized projects. Our ${knowledge.company.yearsExperience} of experience ensures quality delivery. Which construction sector interests you?`;
   }
   
-  if (userMessage.includes('portfolio')) {
-    return `We've completed ${knowledge.projectPortfolio.totalCompleted} projects. Want to see specific types or schedule a consultation?`;
+  if (userMessage.includes('portfolio') || userMessage.includes('experience')) {
+    return `We've successfully delivered ${knowledge.projectPortfolio.totalCompleted} projects across various construction sectors. Would you like to see specific project types or schedule a consultation to discuss your requirements?`;
   }
 
   if (context.lastTopic) {
-    return `Regarding ${context.lastTopic}, would you like more details or should I help with something else?`;
+    return `Regarding ${context.lastTopic}, would you like more detailed information or should we explore another aspect of your construction project?`;
   }
 
-  return `I can help with construction projects, cost estimates, and scheduling meetings. What do you need?`;
+  return `I'm here to help with your construction project planning! I can assist with cost estimates, service information, project consultations, or general construction guidance. What would you like to explore?`;
 }
 
 function getRelevantSuggestions(userMessage, context) {
-  if (userMessage.includes('meeting') || userMessage.includes('schedule')) {
+  if (userMessage.includes('meeting') || userMessage.includes('schedule') || userMessage.includes('consultation')) {
     return [];
   }
 
   // Context-aware suggestions
   if (context.lastTopic === 'our services' && context.lastService) {
-    return [`Cost for ${context.lastService}`, `Schedule ${context.lastService} consultation`, "View portfolio"];
+    return [`Cost Analysis for ${context.lastService}`, `Schedule ${context.lastService} Consultation`, "View Our Portfolio"];
   }
   
   if (context.lastTopic === 'cost estimation') {
-    return ["Calculate Cost", "Schedule Consultation", "Get Detailed Quote", "Other Cost Types"];
+    return ["Detailed Cost Calculation", "Expert Consultation", "Project Planning Guide"];
   }
   
-  if (userMessage.includes('cost') || userMessage.includes('price')) {
-    return ["🏠 Residential Cost", "🏢 Commercial Cost", "🏭 Industrial Cost", "🔗 Cost Calculator"];
+  if (userMessage.includes('cost') || userMessage.includes('price') || userMessage.includes('budget')) {
+    return ["🏠 Residential Costs", "🏢 Commercial Pricing", "🏭 Industrial Estimates", "🔗 Detailed Calculator"];
   }
   
-  if (userMessage.includes('portfolio') || userMessage.includes('work')) {
-    return ["Residential projects", "Commercial projects", "Schedule consultation"];
+  if (userMessage.includes('portfolio') || userMessage.includes('experience') || userMessage.includes('work')) {
+    return ["Residential Projects", "Commercial Buildings", "Schedule Consultation"];
   }
   
-  if (userMessage.includes('residential') || userMessage.includes('house')) {
-    return ["House construction cost", "Schedule consultation", "View portfolio"];
+  if (userMessage.includes('residential') || userMessage.includes('house') || userMessage.includes('home')) {
+    return ["Residential Cost Analysis", "Schedule Home Consultation", "View Residential Portfolio"];
   }
   
-  if (userMessage.includes('commercial') || userMessage.includes('business')) {
-    return ["Commercial project cost", "Schedule consultation", "View portfolio"];
+  if (userMessage.includes('commercial') || userMessage.includes('business') || userMessage.includes('office')) {
+    return ["Commercial Project Pricing", "Schedule Business Consultation", "View Commercial Portfolio"];
   }
   
-  if (userMessage.includes('service')) {
-    return ["Residential projects", "Commercial projects", "Cost estimation"];
+  if (userMessage.includes('service') || userMessage.includes('offer')) {
+    return ["Residential Construction", "Commercial Projects", "Cost Estimation"];
   }
   
-  return ["Schedule meeting", "Our services", "Cost estimation"];
+  return ["Schedule Expert Consultation", "Our Construction Services", "Project Cost Estimation"];
 }
 
-// ==================== COMPLETE MEETING HANDLER ====================
+// ==================== AI AGENT MAINTENANCE ====================
 
-async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
-  let meetingState = meetingStates.get(sessionId) || {
-    step: 0,
-    data: {},
-    createdAt: new Date().toISOString()
-  };
-
-  console.log('📅 Meeting State - Step:', meetingState.step, 'Message:', userMessage);
-
-  // Update context
-  context.lastTopic = 'meeting booking';
-  context.state = conversationStates.MEETING_BOOKING;
-
-  // Step 0: Start meeting booking
-  if (meetingState.step === 0) {
-    meetingState.step = 1;
-    meetingStates.set(sessionId, meetingState);
-    
-    return res.json(formatResponse(
-      `I'd be happy to schedule a meeting with our construction experts at ${knowledge.company.name}! What's your name?`,
-      [],
-      'get_name',
-      null,
-      sessionId
-    ));
-  }
-
-  // Step 1: Get name - FIXED: Use the actual message from request body
-  if (meetingState.step === 1) {
-    // Use req.body.message instead of userMessage (which is lowercase)
-    const userName = req.body.message.trim();
-    meetingState.data.name = userName;
-    meetingState.step = 2;
-    meetingStates.set(sessionId, meetingState);
-    
-    return res.json(formatResponse(
-      `Nice to meet you, ${userName}! What's your email address for the meeting confirmation?`,
-      [],
-      'get_email',
-      null,
-      sessionId
-    ));
-  }
-
-  // Step 2: Get email - FIXED: Use the actual message from request body
-  if (meetingState.step === 2) {
-    const userEmail = req.body.message.trim();
-    
-    if (!isValidEmail(userEmail)) {
-      return res.json(formatResponse(
-        "Please provide a valid email address (e.g., name@example.com)",
-        ["Try again", "Call instead"],
-        'get_email',
-        null,
-        sessionId
-      ));
-    }
-
-    meetingState.data.email = userEmail;
-    meetingState.step = 3;
-    meetingStates.set(sessionId, meetingState);
-    
-    return res.json(formatResponse(
-      "Great! What type of project are you planning?",
-      ["Residential", "Commercial", "Industrial", "General Consultation"],
-      'get_project_type',
-      null,
-      sessionId
-    ));
-  }
-
-  // Step 3: Get project type - FIXED: Use the actual message from request body
-  if (meetingState.step === 3) {
-    const projectType = req.body.message.trim();
-    meetingState.data.projectType = projectType;
-    meetingState.step = 4;
-    meetingStates.set(sessionId, meetingState);
-
-    // Generate available dates
-    const availableDates = calendarService.generateAvailableDates();
-    
-    const dateSuggestions = availableDates.map(date => date.display);
-    
-    return res.json(formatResponse(
-      `Perfect! For your ${projectType} project, which date works best for you?`,
-      dateSuggestions,
-      'get_date',
-      { availableDates },
-      sessionId
-    ));
-  }
-
-  // Step 4: Get date - FIXED: Use the actual message from request body
-  if (meetingState.step === 4) {
-    const selectedDate = req.body.message.trim();
-    meetingState.data.date = selectedDate;
-    meetingState.step = 5;
-    meetingStates.set(sessionId, meetingState);
-
-    // Generate available times
-    const availableTimes = calendarService.generateAvailableTimes();
-    const timeSuggestions = availableTimes.map(time => time.display);
-    
-    return res.json(formatResponse(
-      "Great choice! What time works best for you?",
-      timeSuggestions,
-      'get_time',
-      { availableTimes },
-      sessionId
-    ));
-  }
-
-  // Step 5: Get time and confirm booking - FIXED: Use the actual message from request body
-  if (meetingState.step === 5) {
-    const selectedTime = req.body.message.trim();
-    meetingState.data.time = selectedTime;
-    
-    // Generate meeting ID
-    meetingState.data.id = 'MTG_' + Date.now();
-    meetingState.data.timestamp = new Date().toISOString();
-
-    // Show confirmation before sending email
-    meetingState.step = 6;
-    meetingStates.set(sessionId, meetingState);
-
-    return res.json(formatResponse(
-      `📅 **Meeting Confirmed!**\n\nHere are your meeting details:\n\n• **Name:** ${meetingState.data.name}\n• **Email:** ${meetingState.data.email}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n• **Meeting ID:** ${meetingState.data.id}\n\nShall I send the confirmation email to ${meetingState.data.email}?`,
-      ["Yes, send confirmation", "No, cancel meeting"],
-      'confirm_email_sending',
-      { meeting: meetingState.data },
-      sessionId
-    ));
-  }
-
-  // Step 6: Send confirmation emails USING RESEND
-  if (meetingState.step === 6) {
-    const userResponse = userMessage.toLowerCase();
-    
-    if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
-      try {
-        console.log('📧 Attempting to send confirmation email via Resend...');
-        
-        const emailResult = await resendEmailService.sendMeetingConfirmation(meetingState.data);
-        
-        if (emailResult.success) {
-          console.log('✅ Resend email sent successfully!');
-          console.log('   Client Message ID:', emailResult.clientMessageId);
-          console.log('   Company Message ID:', emailResult.companyMessageId);
-          
-          meetingStates.delete(sessionId);
-          
-          return res.json(formatResponse(
-            `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
-            ["Schedule another meeting", "View our services", "Get cost estimate"],
-            'meeting_completed',
-            { 
-              meetingId: meetingState.data.id, 
-              emailSent: true,
-              messageIds: {
-                client: emailResult.clientMessageId,
-                company: emailResult.companyMessageId
-              }
-            },
-            sessionId
-          ));
-        } else {
-          console.log('⚠️ Resend email failed:', emailResult.error);
-          meetingStates.delete(sessionId);
-          
-          return res.json(formatResponse(
-            `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nMeeting ID: ${meetingState.data.id}\n\nOur team will contact you to confirm.`,
-            ["Schedule another meeting", "View our services", "Get cost estimate"],
-            'meeting_completed_fallback',
-            { meetingId: meetingState.data.id, emailSent: false },
-            sessionId
-          ));
-        }
-      } catch (error) {
-        console.error('❌ Email process error:', error);
-        meetingStates.delete(sessionId);
-        
-        return res.json(formatResponse(
-          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
-          ["Schedule another meeting", "View our services", "Get cost estimate"],
-          'meeting_completed_fallback',
-          { meetingId: meetingState.data.id, emailSent: false },
-          sessionId
-        ));
-      }
-    } else {
-      // User canceled
-      meetingStates.delete(sessionId);
-      return res.json(formatResponse(
-        "Meeting booking canceled.",
-        ["Schedule meeting", "Our services", "Cost estimation"],
-        'meeting_canceled',
-        null,
-        sessionId
-      ));
-    }
-  }
-}
-
-
-// ==================== CLEANUP AND MAINTENANCE ====================
-
-// Session cleanup interval (runs every hour)
+// Session cleanup interval
 setInterval(() => {
   const now = Date.now();
   const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -1162,16 +1418,16 @@ setInterval(() => {
   }
   
   if (cleanedCount > 0) {
-    console.log(`🧹 Cleaned up ${cleanedCount} old sessions`);
+    console.log(`🤖 AI Agent cleaned up ${cleanedCount} old sessions`);
   }
-}, 60 * 60 * 1000); // Run every hour
+}, 60 * 60 * 1000);
 
 // Clear meeting state endpoint
 router.post('/clear-meeting', (req, res) => {
   const { sessionId } = req.body;
   if (sessionId && meetingStates.has(sessionId)) {
     meetingStates.delete(sessionId);
-    console.log('🧹 Cleared meeting state for session:', sessionId);
+    console.log('🤖 AI Agent cleared meeting state for session:', sessionId);
   }
   res.json({ success: true });
 });
@@ -1181,29 +1437,33 @@ router.post('/clear-context', (req, res) => {
   const { sessionId } = req.body;
   if (sessionId && conversationContexts.has(sessionId)) {
     conversationContexts.delete(sessionId);
-    console.log('🧹 Cleared conversation context for session:', sessionId);
+    console.log('🤖 AI Agent cleared conversation context for session:', sessionId);
   }
   res.json({ success: true });
 });
 
-// Health check endpoint
+// AI Agent health check endpoint
 router.get('/health', (req, res) => {
   res.json({
-    status: 'healthy',
+    status: 'AI Agent Operational',
+    agent: AGENT_PERSONALITY.name,
     activeSessions: conversationContexts.size,
-    activeMeetings: meetingStates.size,
+    activeConsultations: meetingStates.size,
+    expertise: `${knowledge.projectPortfolio.totalCompleted} projects experience`,
     memoryUsage: process.memoryUsage(),
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
 
-// Get conversation stats
+// AI Agent conversation stats
 router.get('/stats', (req, res) => {
   res.json({
+    agent: AGENT_PERSONALITY.name,
     totalSessions: conversationContexts.size,
-    totalMeetings: meetingStates.size,
+    activeConsultations: meetingStates.size,
     rateLimitStats: Object.fromEntries(requestCounts.entries()),
+    expertise: `${knowledge.projectPortfolio.totalCompleted} projects`,
     serverTime: new Date().toISOString()
   });
 });

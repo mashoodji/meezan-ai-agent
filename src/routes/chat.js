@@ -61,6 +61,11 @@ const RESPONSE_STYLES = {
     "I've checked our specialists' calendar. For your {projectType} project, here are the available consultation slots. Which works best for your schedule?",
     "Our construction experts have availability coming up. For your {projectType} project, which of these dates fits your timeline?",
     "I found some great slots with our {projectType} specialists. When would you prefer to meet and discuss your project in detail?"
+  ],
+  date_confirmation: [
+    "Excellent choice! Now, what time on {date} works best for your {projectType} consultation?",
+    "Great! I have several time slots available on {date} for your {projectType} project. Which time suits you?",
+    "Perfect! Let's pick a time on {date} for your {projectType} discussion. What works for your schedule?"
   ]
 };
 
@@ -838,9 +843,9 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     meetingStates.set(sessionId, meetingState);
     
     const response = formatResponse(
-      generateNaturalResponse('project_type', { name: userName }),
-      ["Residential", "Commercial", "Industrial", "General Consultation"],
-      'get_project_type_natural',
+      `Perfect! Now, ${userName}, what's the best email to send your consultation details and confirmation to?`,
+      [],
+      'get_email_natural',
       null,
       sessionId
     );
@@ -848,7 +853,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     return res.json(response);
   }
 
-  // Step 2: Get project type with expertise
+  // Step 2: Get email with professional handling
   if (meetingState.step === 2) {
     const userEmail = req.body.message.trim();
     
@@ -867,7 +872,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     meetingStates.set(sessionId, meetingState);
     
     const response = formatResponse(
-      `Perfect! Now, ${meetingState.data.name}, what type of construction project are you planning? This helps me connect you with the right specialists.`,
+      generateNaturalResponse('project_type', { name: meetingState.data.name }),
       ["Residential", "Commercial", "Industrial", "General Consultation"],
       'get_project_type',
       null,
@@ -933,7 +938,6 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     return res.json(response);
   }
 
-  // ... [Rest of the meeting handler remains the same but with AI Agent personality]
   // Step 4.5: Handle alternative dates
   if (meetingState.step === 4.5) {
     const userResponse = userMessage.toLowerCase();
@@ -976,31 +980,57 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     }
   }
 
-  // Step 4: Get date with intelligent handling
+  // Step 4: Get date with intelligent handling - FIXED VERSION
   if (meetingState.step === 4) {
     const selectedDateInput = req.body.message.trim();
     
-    // Extract date from the input
+    console.log('🤖 AI Agent - User selected date:', selectedDateInput);
+    
+    // Extract date from the input - handle multiple formats
     let selectedDate;
+    let selectedDateDisplay;
+    
     if (meetingState.alternativeDates) {
+      // User selected from alternative dates
       const selectedSlot = meetingState.alternativeDates.find(slot => 
         `${slot.date} at ${slot.time}` === selectedDateInput
       );
       if (selectedSlot) {
         selectedDate = selectedSlot.fullDate;
-        meetingState.data.time = selectedSlot.time;
+        selectedDateDisplay = selectedSlot.date;
+        meetingState.data.time = selectedSlot.time; // Pre-select the time
       }
     }
     
     if (!selectedDate) {
+      // Normal date selection flow - handle user typing dates
       const availableDates = meetingState.availableDates || calendarService.generateAvailableDates();
-      const selectedDateObj = availableDates.find(date => 
-        date.display === selectedDateInput || date.value === selectedDateInput
-      );
+      
+      // Try to match the user's input with available dates
+      const selectedDateObj = availableDates.find(date => {
+        // Check exact match
+        if (date.display === selectedDateInput) return true;
+        if (date.value === selectedDateInput) return true;
+        
+        // Check partial matches (user might type "Nov 24" instead of full date)
+        if (selectedDateInput.includes(date.value.substring(5))) return true; // Match "Nov 24"
+        if (date.display.toLowerCase().includes(selectedDateInput.toLowerCase())) return true;
+        
+        return false;
+      });
       
       if (!selectedDateObj) {
+        // User typed something that doesn't match available dates
+        const aiAgentDateResponses = [
+          `I want to make sure I book the right date for your ${meetingState.data.projectType} project consultation. Could you select one of these available dates?`,
+          `For your ${meetingState.data.projectType} project, our specialists have these dates available. Which works best?`,
+          `Let's find the perfect date for your ${meetingState.data.projectType} discussion. Here are our available slots:`
+        ];
+        
+        const randomResponse = aiAgentDateResponses[Math.floor(Math.random() * aiAgentDateResponses.length)];
+        
         return res.json(formatResponse(
-          "To ensure I book the right time, could you please select from the available dates?",
+          randomResponse,
           availableDates.map(date => `${date.display} (${date.availability})`),
           'get_date_natural',
           { availableDates },
@@ -1008,6 +1038,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         ));
       }
       selectedDate = selectedDateObj.value;
+      selectedDateDisplay = selectedDateObj.display;
     }
 
     meetingState.data.date = selectedDate;
@@ -1022,7 +1053,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       const nextDates = calendarService.generateAvailableDates();
       
       return res.json(formatResponse(
-        `It looks like all consultation slots for ${selectedDateInput} have been booked. Our specialists have availability on these dates instead:`,
+        `It looks like ${selectedDateDisplay} is fully booked. Our ${meetingState.data.projectType} specialists have these dates available instead:`,
         nextDates.map(date => `${date.display} (${date.availability})`),
         'get_date_natural',
         { availableDates: nextDates },
@@ -1032,22 +1063,30 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 
     const timeSuggestions = availableTimeSlots.map(time => time.display);
     
-    // If time was pre-selected from alternative dates
+    // If time was pre-selected from alternative dates, skip to confirmation
     if (meetingState.data.time) {
       meetingState.step = 6;
       meetingStates.set(sessionId, meetingState);
       
       return res.json(formatResponse(
-        `Perfect! Let me confirm your consultation details:\n\n• **Date:** ${selectedDateInput}\n• **Time:** ${meetingState.data.time}\n• **Project:** ${meetingState.data.projectType}\n• **With:** ${meetingState.data.name}\n\nDoes this look correct for your ${meetingState.data.projectType} project consultation?`,
-        ["Yes, that's perfect", "No, let me make changes"],
+        `Perfect! Let me confirm your ${meetingState.data.projectType} project consultation:\n\n• **Date:** ${selectedDateDisplay}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nReady to secure this time with our specialists?`,
+        ["Yes, confirm booking", "No, let me make changes"],
         'confirm_meeting_natural',
         { meeting: meetingState.data },
         sessionId
       ));
     }
 
+    const timeSelectionResponses = [
+      `Great! I have ${availableTimeSlots.length} time slots available on ${selectedDateDisplay} for your ${meetingState.data.projectType} consultation. Which time works best?`,
+      `Excellent choice! Our ${meetingState.data.projectType} specialists have these times available on ${selectedDateDisplay}. What works for your schedule?`,
+      `Perfect! Let's pick a time on ${selectedDateDisplay} for your ${meetingState.data.projectType} discussion. Here are the available slots:`
+    ];
+    
+    const randomTimeResponse = timeSelectionResponses[Math.floor(Math.random() * timeSelectionResponses.length)];
+
     return res.json(formatResponse(
-      `Great choice! What time on ${selectedDateInput} works best for your ${meetingState.data.projectType} project consultation?`,
+      randomTimeResponse,
       timeSuggestions,
       'get_time_natural',
       { availableTimes: availableTimeSlots },
@@ -1068,7 +1107,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       const availableTimeSlots = availableTimes.filter(time => time.isAvailable);
       
       return res.json(formatResponse(
-        `That time slot was just booked by another client. Here are the remaining available times on ${selectedDateInput}:`,
+        `That time slot was just booked by another client. Here are the remaining available times on ${meetingState.data.date}:`,
         availableTimeSlots.map(time => time.display),
         'get_time_natural',
         { availableTimes: availableTimeSlots },
@@ -1080,8 +1119,16 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     meetingState.step = 6;
     meetingStates.set(sessionId, meetingState);
 
-    return res.json(formatResponse(
+    const confirmationResponses = [
       `Excellent! Here's what I have for your consultation:\n\n• **Name:** ${meetingState.data.name}\n• **Project:** ${meetingState.data.projectType}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n\nReady to confirm and secure this time with our ${meetingState.data.projectType} specialists?`,
+      `Perfect! Let me confirm your ${meetingState.data.projectType} consultation details:\n\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nShall I book this appointment with our experts?`,
+      `Great! Here's your consultation summary:\n\n• **Project Type:** ${meetingState.data.projectType}\n• **Consultation Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Client:** ${meetingState.data.name}\n\nReady to confirm this booking?`
+    ];
+    
+    const randomConfirmation = confirmationResponses[Math.floor(Math.random() * confirmationResponses.length)];
+
+    return res.json(formatResponse(
+      randomConfirmation,
       ["Yes, confirm and book", "No, I need to make changes"],
       'confirm_meeting_natural',
       { meeting: meetingState.data },

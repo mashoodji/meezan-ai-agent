@@ -38,13 +38,23 @@ class ResendEmailService {
     try {
       console.log('🎯 Preparing to send emails via Resend...');
       console.log('   To Client:', meetingData.email);
-      console.log('   To Company:', process.env.COMPANY_EMAIL);
+      console.log('   To Company:', process.env.COMPANY_EMAIL || 'mashoodji7@gmail.com');
+
+      // Validate client email
+      if (!meetingData.email || !isValidEmail(meetingData.email)) {
+        console.error('❌ Invalid client email:', meetingData.email);
+        return { 
+          success: false, 
+          error: 'Invalid client email address',
+          clientEmail: meetingData.email
+        };
+      }
 
       // Email to Client
       const clientEmail = {
         from: 'Meezan Developers <onboarding@resend.dev>',
-        to: meetingData.email,
-        subject: 'Meeting Confirmed - Meezan Developers',
+        to: [meetingData.email],
+        subject: `Meeting Confirmed - ${meetingData.name} - Meezan Developers`,
         html: this.getClientEmailTemplate(meetingData),
         text: this.getTextEmailTemplate(meetingData)
       };
@@ -52,43 +62,51 @@ class ResendEmailService {
       // Email to Company
       const companyEmail = {
         from: 'Meezan Developers AI Agent <onboarding@resend.dev>',
-        to: process.env.COMPANY_EMAIL || 'meezandevelopers.official@gmail.com',
-        subject: `New Meeting Scheduled - ${meetingData.name}`,
+        to: [process.env.COMPANY_EMAIL || 'mashoodji7@gmail.com'],
+        subject: `New Meeting Scheduled - ${meetingData.name} - ${meetingData.projectType}`,
         html: this.getCompanyEmailTemplate(meetingData)
       };
 
       console.log('📤 Sending client email via Resend...');
       const clientResult = await this.resend.emails.send(clientEmail);
+      
+      if (clientResult.error) {
+        console.error('❌ Client email failed:', clientResult.error);
+        throw new Error(`Client email failed: ${clientResult.error.message}`);
+      }
+      
       console.log('✅ Client email sent via Resend!');
       console.log('   Message ID:', clientResult.data?.id);
 
       console.log('📤 Sending company email via Resend...');
       const companyResult = await this.resend.emails.send(companyEmail);
-      console.log('✅ Company email sent via Resend!');
-      console.log('   Message ID:', companyResult.data?.id);
+      
+      if (companyResult.error) {
+        console.error('❌ Company email failed:', companyResult.error);
+        // Don't throw here, at least one email succeeded
+        console.log('⚠️  Company email failed but client email was sent');
+      } else {
+        console.log('✅ Company email sent via Resend!');
+        console.log('   Message ID:', companyResult.data?.id);
+      }
 
       console.log('🎉 ALL RESEND EMAILS SENT SUCCESSFULLY!');
       return { 
         success: true, 
         clientMessageId: clientResult.data?.id,
-        companyMessageId: companyResult.data?.id
+        companyMessageId: companyResult.data?.id,
+        clientEmail: meetingData.email,
+        companyEmail: process.env.COMPANY_EMAIL || 'mashoodji7@gmail.com'
       };
 
     } catch (error) {
       console.error('💥 RESEND EMAIL SENDING FAILED:');
       console.error('   Error:', error.message);
       
-      if (error.message.includes('API key')) {
-        console.error('   🔐 INVALID RESEND API KEY');
-        console.error('   💡 Get your API key from: https://resend.com/api-keys');
-      } else if (error.message.includes('domain')) {
-        console.error('   🌐 DOMAIN VERIFICATION NEEDED');
-        console.error('   💡 Verify your domain in Resend dashboard');
-      }
-      
       return { 
         success: false, 
-        error: error.message
+        error: error.message,
+        clientEmail: meetingData.email
       };
     }
   }
@@ -284,6 +302,12 @@ Meezan Developers
 Building Excellence Since 2009
     `;
   }
+}
+
+// Email validation helper
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 module.exports = new ResendEmailService();

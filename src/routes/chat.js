@@ -58,9 +58,9 @@ const RESPONSE_STYLES = {
     "Wonderful, {name}! Our team specializes in various project types. Are you thinking residential, commercial, industrial, or another type of construction?"
   ],
   date_selection: [
-    "I've checked our specialists' calendar for 2025. For your {projectType} project, here are the available consultation slots. Which works best for your schedule?",
-    "Our construction experts have availability in November 2025. For your {projectType} project, which of these dates fits your timeline?",
-    "I found some great slots with our {projectType} specialists in late 2025. When would you prefer to meet and discuss your project in detail?"
+    "I've checked our specialists' calendar. For your {projectType} project, here are the available consultation slots. Which works best for your schedule?",
+    "Our construction experts have availability coming up. For your {projectType} project, which of these dates fits your timeline?",
+    "I found some great slots with our {projectType} specialists. When would you prefer to meet and discuss your project in detail?"
   ],
   date_confirmation: [
     "Excellent choice! Now, what time on {date} works best for your {projectType} consultation?",
@@ -889,13 +889,13 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     meetingState.step = 4;
     meetingStates.set(sessionId, meetingState);
 
-    // Generate available dates for 2025
+    // Generate available dates with calendar check
     const availableDates = calendarService.generateAvailableDates();
     
     if (availableDates.length === 0) {
       // No available dates - expert handling
       const nextSlots = calendarService.getNextAvailableSlots(3);
-      let reply = `I've checked our specialists' calendars for 2025, and unfortunately, all consultation slots for the coming period are fully booked. `;
+      let reply = `I've checked our specialists' calendars, and unfortunately, all consultation slots for the coming week are fully booked. `;
       
       if (nextSlots.length > 0) {
         reply += `However, I found these available slots coming up:\n\n`;
@@ -916,7 +916,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         ));
       } else {
         return res.json(formatResponse(
-          `Our consultation schedule for 2025 is currently fully booked. For urgent project inquiries, I recommend contacting our team directly at ${knowledge.company.contact.phone}.`,
+          `Our consultation schedule is currently fully booked. For urgent project inquiries, I recommend contacting our team directly at ${knowledge.company.contact.phone}.`,
           ["Contact via phone", "Send project details", "Try again later"],
           'fully_booked_expert',
           null,
@@ -927,6 +927,10 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 
     const dateSuggestions = availableDates.map(date => `${date.display} (${date.availability})`);
     
+    // Store available dates in meeting state for reference
+    meetingState.availableDates = availableDates;
+    meetingStates.set(sessionId, meetingState);
+
     const response = formatResponse(
       generateNaturalResponse('date_selection', { projectType: projectType }),
       dateSuggestions,
@@ -953,7 +957,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         meetingStates.set(sessionId, meetingState);
         
         return res.json(formatResponse(
-          `Excellent! Here are the available consultation slots I found for 2025:\n\n${nextSlots.map(slot => `• ${slot.date} at ${slot.time}`).join('\n')}\n\nWhich one works best for your schedule?`,
+          `Excellent! Here are the available consultation slots I found:\n\n${nextSlots.map(slot => `• ${slot.date} at ${slot.time}`).join('\n')}\n\nWhich one works best for your schedule?`,
           dateSuggestions,
           'get_alternative_date_natural',
           { alternativeSlots: nextSlots },
@@ -971,7 +975,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     } else {
       meetingStates.delete(sessionId);
       return res.json(formatResponse(
-        "No problem at all! Feel free to reach out when you're ready to schedule your consultation for 2025. We're here to help bring your construction vision to life.",
+        "No problem at all! Feel free to reach out when you're ready to schedule your consultation. We're here to help bring your construction vision to life.",
         ["Schedule later", "Our services", "Cost estimation"],
         'booking_canceled_natural',
         null,
@@ -980,7 +984,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     }
   }
 
-  // Step 4: Get date with intelligent handling - FIXED FOR 2025
+  // Step 4: Get date with intelligent handling - FIXED VERSION
   if (meetingState.step === 4) {
     const selectedDateInput = req.body.message.trim();
     
@@ -1003,18 +1007,24 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     }
     
     if (!selectedDate) {
-      // Normal date selection flow - handle user typing dates
+      // Normal date selection flow - handle user clicking suggestions
       const availableDates = meetingState.availableDates || calendarService.generateAvailableDates();
       
-      // Try to match the user's input with available dates
+      // IMPROVED: Better matching for suggested dates
       const selectedDateObj = availableDates.find(date => {
-        // Check exact match
+        // Check exact match with display text (what user sees)
         if (date.display === selectedDateInput) return true;
-        if (date.value === selectedDateInput) return true;
         
-        // Check partial matches (user might type "Nov 24" instead of full date)
+        // Check match with the suggestion format (display + availability)
+        if (`${date.display} (${date.availability})` === selectedDateInput) return true;
+        
+        // Check partial matches for user typing
         if (selectedDateInput.includes(date.value.substring(5))) return true; // Match "Nov 24"
         if (date.display.toLowerCase().includes(selectedDateInput.toLowerCase())) return true;
+        
+        // Check if user typed just the day part (e.g., "Fri, Nov 21")
+        const dayPart = date.display.split(' ').slice(0, 3).join(' ');
+        if (dayPart === selectedDateInput) return true;
         
         return false;
       });
@@ -1022,10 +1032,9 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       if (!selectedDateObj) {
         // User typed something that doesn't match available dates
         const aiAgentDateResponses = [
-          `I want to make sure I book the right date in 2025 for your ${meetingState.data.projectType} project consultation. Could you select one of these available dates?`,
-          `For your ${meetingState.data.projectType} project, our specialists have these dates available in November 2025. Which works best?`,
-          `Let's find the perfect date in 2025 for your ${meetingState.data.projectType} discussion. Here are our available slots:`,
-          `Our ${meetingState.data.projectType} experts have these openings in late 2025. Which suits your schedule?`
+          `I want to make sure I book the right date for your ${meetingState.data.projectType} project consultation. Could you select one of these available dates?`,
+          `For your ${meetingState.data.projectType} project, our specialists have these dates available. Which works best?`,
+          `Let's find the perfect date for your ${meetingState.data.projectType} discussion. Here are our available slots:`
         ];
         
         const randomResponse = aiAgentDateResponses[Math.floor(Math.random() * aiAgentDateResponses.length)];
@@ -1052,11 +1061,10 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     
     if (availableTimeSlots.length === 0) {
       const nextDates = calendarService.generateAvailableDates();
-      const nextDatesDisplay = nextDates.map(date => `${date.display} (${date.availability})`);
       
       return res.json(formatResponse(
-        `It looks like ${selectedDateDisplay} is fully booked. Our ${meetingState.data.projectType} specialists have these dates available in 2025 instead:`,
-        nextDatesDisplay,
+        `It looks like ${selectedDateDisplay} is fully booked. Our ${meetingState.data.projectType} specialists have these dates available instead:`,
+        nextDates.map(date => `${date.display} (${date.availability})`),
         'get_date_natural',
         { availableDates: nextDates },
         sessionId
@@ -1071,7 +1079,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       meetingStates.set(sessionId, meetingState);
       
       return res.json(formatResponse(
-        `Perfect! Let me confirm your ${meetingState.data.projectType} project consultation for 2025:\n\n• **Date:** ${selectedDateDisplay}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nReady to secure this time with our specialists?`,
+        `Perfect! Let me confirm your ${meetingState.data.projectType} project consultation:\n\n• **Date:** ${selectedDateDisplay}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nReady to secure this time with our specialists?`,
         ["Yes, confirm booking", "No, let me make changes"],
         'confirm_meeting_natural',
         { meeting: meetingState.data },
@@ -1082,8 +1090,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     const timeSelectionResponses = [
       `Great! I have ${availableTimeSlots.length} time slots available on ${selectedDateDisplay} for your ${meetingState.data.projectType} consultation. Which time works best?`,
       `Excellent choice! Our ${meetingState.data.projectType} specialists have these times available on ${selectedDateDisplay}. What works for your schedule?`,
-      `Perfect! Let's pick a time on ${selectedDateDisplay} for your ${meetingState.data.projectType} discussion. Here are the available slots:`,
-      `I've checked our schedule for ${selectedDateDisplay}. Here are the available times for your ${meetingState.data.projectType} consultation:`
+      `Perfect! Let's pick a time on ${selectedDateDisplay} for your ${meetingState.data.projectType} discussion. Here are the available slots:`
     ];
     
     const randomTimeResponse = timeSelectionResponses[Math.floor(Math.random() * timeSelectionResponses.length)];
@@ -1123,9 +1130,9 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     meetingStates.set(sessionId, meetingState);
 
     const confirmationResponses = [
-      `Excellent! Here's what I have for your 2025 consultation:\n\n• **Name:** ${meetingState.data.name}\n• **Project:** ${meetingState.data.projectType}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n\nReady to confirm and secure this time with our ${meetingState.data.projectType} specialists?`,
-      `Perfect! Let me confirm your ${meetingState.data.projectType} consultation details for 2025:\n\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nShall I book this appointment with our experts?`,
-      `Great! Here's your 2025 consultation summary:\n\n• **Project Type:** ${meetingState.data.projectType}\n• **Consultation Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Client:** ${meetingState.data.name}\n\nReady to confirm this booking?`
+      `Excellent! Here's what I have for your consultation:\n\n• **Name:** ${meetingState.data.name}\n• **Project:** ${meetingState.data.projectType}\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n\nReady to confirm and secure this time with our ${meetingState.data.projectType} specialists?`,
+      `Perfect! Let me confirm your ${meetingState.data.projectType} consultation details:\n\n• **Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **With:** ${meetingState.data.name}\n\nShall I book this appointment with our experts?`,
+      `Great! Here's your consultation summary:\n\n• **Project Type:** ${meetingState.data.projectType}\n• **Consultation Date:** ${meetingState.data.date}\n• **Time:** ${meetingState.data.time}\n• **Client:** ${meetingState.data.name}\n\nReady to confirm this booking?`
     ];
     
     const randomConfirmation = confirmationResponses[Math.floor(Math.random() * confirmationResponses.length)];
@@ -1151,7 +1158,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         const nextDates = calendarService.generateAvailableDates();
         
         return res.json(formatResponse(
-          `That time slot was just secured by another client. Here are our available consultation dates for 2025:`,
+          `That time slot was just secured by another client. Here are our available consultation dates:`,
           nextDates.map(date => `${date.display} (${date.availability})`),
           'get_date_natural',
           { availableDates: nextDates },
@@ -1172,7 +1179,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 
       if (!bookingResult.success) {
         return res.json(formatResponse(
-          `I apologize, but that time slot is no longer available. Let's find another time that works for your ${meetingState.data.projectType} project in 2025.`,
+          `I apologize, but that time slot is no longer available. Let's find another time that works for your ${meetingState.data.projectType} project.`,
           ["Choose different time", "Select another date", "Contact support"],
           'booking_failed_expert',
           null,
@@ -1184,7 +1191,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       meetingStates.set(sessionId, meetingState);
 
       return res.json(formatResponse(
-        `✅ **Consultation Confirmed for 2025!**\n\nI've secured your time with our ${meetingState.data.projectType} specialists.\n\nShall I send the confirmation details to ${meetingState.data.email}?`,
+        `✅ **Consultation Confirmed!**\n\nI've secured your time with our ${meetingState.data.projectType} specialists.\n\nShall I send the confirmation details to ${meetingState.data.email}?`,
         ["Yes, send confirmation", "No, cancel booking"],
         'confirm_email_sending_natural',
         { meeting: meetingState.data, bookingId: bookingResult.bookingId },
@@ -1212,7 +1219,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         1: "Let's update your name. What should I call you?",
         2: "What's the best email to send your confirmation to?",
         3: "What type of construction project are you planning?",
-        4: "Which consultation date in 2025 works best for you?",
+        4: "Which consultation date works best for you?",
         5: "What time would you prefer for your consultation?"
       };
       
@@ -1226,23 +1233,33 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     }
   }
 
-  // Step 7: Send confirmation with professional touch
+  // Step 7: Send confirmation with professional touch - FIXED EMAIL SENDING
   if (meetingState.step === 7) {
     const userResponse = userMessage.toLowerCase();
     
     if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
       try {
-        console.log('🤖 AI Agent sending confirmation email...');
+        console.log('📧 AI Agent sending confirmation email...');
+        console.log('   Client Email:', meetingState.data.email);
+        console.log('   Meeting Details:', {
+          name: meetingState.data.name,
+          date: meetingState.data.date,
+          time: meetingState.data.time,
+          projectType: meetingState.data.projectType,
+          id: meetingState.data.id
+        });
         
         const emailResult = await resendEmailService.sendMeetingConfirmation(meetingState.data);
         
         if (emailResult.success) {
           console.log('✅ AI Agent email sent successfully!');
+          console.log('   Client Message ID:', emailResult.clientMessageId);
+          console.log('   Company Message ID:', emailResult.companyMessageId);
           
           meetingStates.delete(sessionId);
           
           return res.json(formatResponse(
-            `🎉 **Consultation Booked Successfully for 2025!**\n\n✅ Confirmation sent to ${meetingState.data.email}\n✅ Time secured with our ${meetingState.data.projectType} specialists\n✅ Our team will prepare for your project discussion\n\n**Meeting ID:** ${meetingState.data.id}\n**Date:** ${meetingState.data.date}\n**Time:** ${meetingState.data.time}\n\nWe look forward to helping bring your construction vision to life!`,
+            `🎉 **Consultation Booked Successfully!**\n\n✅ Confirmation sent to ${meetingState.data.email}\n✅ Time secured with our ${meetingState.data.projectType} specialists\n✅ Our team will prepare for your project discussion\n\n**Meeting ID:** ${meetingState.data.id}\n**Date:** ${meetingState.data.date}\n**Time:** ${meetingState.data.time}\n\nWe look forward to helping bring your construction vision to life!`,
             ["Schedule another consultation", "Our construction services", "Project cost estimation"],
             'meeting_completed_expert',
             { 
@@ -1260,7 +1277,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
           meetingStates.delete(sessionId);
           
           return res.json(formatResponse(
-            `✅ **Consultation Confirmed for 2025!**\n\nYour meeting is scheduled for ${meetingState.data.date} at ${meetingState.data.time}.\n\n**Meeting ID:** ${meetingState.data.id}\n\nOur team will contact you directly to confirm and discuss your ${meetingState.data.projectType} project.`,
+            `✅ **Consultation Confirmed!**\n\nYour meeting is scheduled for ${meetingState.data.date} at ${meetingState.data.time}.\n\n**Meeting ID:** ${meetingState.data.id}\n\nOur team will contact you directly to confirm and discuss your ${meetingState.data.projectType} project.`,
             ["Schedule another meeting", "Our services", "Cost estimation"],
             'meeting_completed_fallback_expert',
             { meetingId: meetingState.data.id, emailSent: false },
@@ -1272,7 +1289,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
         meetingStates.delete(sessionId);
         
         return res.json(formatResponse(
-          `✅ **Consultation Scheduled for 2025!**\n\nYour meeting has been confirmed. Our construction team will contact you shortly to discuss your ${meetingState.data.projectType} project.\n\n**Meeting ID:** ${meetingState.data.id}`,
+          `✅ **Consultation Scheduled!**\n\nYour meeting has been confirmed. Our construction team will contact you shortly to discuss your ${meetingState.data.projectType} project.\n\n**Meeting ID:** ${meetingState.data.id}`,
           ["Schedule another consultation", "Our construction services", "Project planning"],
           'meeting_completed_fallback_expert',
           { meetingId: meetingState.data.id, emailSent: false },
@@ -1285,7 +1302,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
       meetingStates.delete(sessionId);
       
       return res.json(formatResponse(
-        "I've cancelled the booking and freed up the time slot for other clients. Feel free to reach out when you're ready to schedule your construction consultation for 2025.",
+        "I've cancelled the booking and freed up the time slot for other clients. Feel free to reach out when you're ready to schedule your construction consultation.",
         ["Schedule consultation", "Our services", "Cost estimation"],
         'meeting_canceled_professional',
         null,

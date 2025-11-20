@@ -8,21 +8,19 @@ class CalendarService {
     // Store booked slots in memory
     this.bookedSlots = new Map();
     
-    // Initialize with some sample booked slots for 2025
+    // Initialize with some sample booked slots
     this.initializeSampleBookings();
   }
 
-  // Initialize with sample bookings for 2025
+  // Initialize with realistic sample bookings
   initializeSampleBookings() {
-    // Set base date to 2025
-    const baseDate = new Date('2025-01-01');
+    const today = new Date();
     
-    // Book some realistic slots for November 2025
+    // Book some realistic slots for the next few days
     const sampleBookings = [
-      { date: '2025-11-21', time: '2:00 PM' },
-      { date: '2025-11-21', time: '3:00 PM' },
-      { date: '2025-11-22', time: '10:00 AM' },
-      { date: '2025-11-24', time: '11:00 AM' },
+      { date: this.formatDate(new Date(today.getTime() + 24 * 60 * 60 * 1000)).iso, time: '2:00 PM' },
+      { date: this.formatDate(new Date(today.getTime() + 24 * 60 * 60 * 1000)).iso, time: '3:00 PM' },
+      { date: this.formatDate(new Date(today.getTime() + 48 * 60 * 60 * 1000)).iso, time: '10:00 AM' },
     ];
     
     sampleBookings.forEach(booking => {
@@ -34,86 +32,76 @@ class CalendarService {
     });
   }
 
-  // Generate available dates for November 2025
-  generateAvailableDates() {
-    // Fixed dates for November 2025 with realistic availability
-    const november2025Dates = [
-      {
-        id: 'date_1',
-        value: '2025-11-21',
-        display: 'Fri, Nov 21, 2025',
-        day: 'Friday',
-        availableSlots: 3,
-        isFullyBooked: false,
-        availability: '✅ 3 slots available'
-      },
-      {
-        id: 'date_2',
-        value: '2025-11-24',
-        display: 'Mon, Nov 24, 2025',
-        day: 'Monday',
-        availableSlots: 4,
-        isFullyBooked: false,
-        availability: '✅ 4 slots available'
-      },
-      {
-        id: 'date_3',
-        value: '2025-11-25',
-        display: 'Tue, Nov 25, 2025',
-        day: 'Tuesday',
-        availableSlots: 4,
-        isFullyBooked: false,
-        availability: '✅ 4 slots available'
-      },
-      {
-        id: 'date_4',
-        value: '2025-11-26',
-        display: 'Wed, Nov 26, 2025',
-        day: 'Wednesday',
-        availableSlots: 4,
-        isFullyBooked: false,
-        availability: '✅ 4 slots available'
-      },
-      {
-        id: 'date_5',
-        value: '2025-11-27',
-        display: 'Thu, Nov 27, 2025',
-        day: 'Thursday',
-        availableSlots: 4,
-        isFullyBooked: false,
-        availability: '✅ 4 slots available'
+  // Generate available dates (next 7 weekdays)
+  generateAvailableDates(daysAhead = 7) {
+    const dates = [];
+    const today = new Date();
+    let daysAdded = 0;
+    let currentDate = new Date(today);
+    
+    while (daysAdded < daysAhead) {
+      currentDate.setDate(currentDate.getDate() + 1);
+      
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+        const formattedDate = this.formatDate(new Date(currentDate));
+        const availableSlots = this.getAvailableSlotsForDate(formattedDate.iso);
+        const isFullyBooked = availableSlots.length === 0;
+        
+        // Only add dates with available slots
+        if (!isFullyBooked) {
+          dates.push({
+            id: `date_${daysAdded + 1}`,
+            value: formattedDate.iso,
+            display: formattedDate.display,
+            day: formattedDate.day,
+            availableSlots: availableSlots.length,
+            isFullyBooked: isFullyBooked,
+            availability: `✅ ${availableSlots.length} slots available`
+          });
+          daysAdded++;
+        }
       }
-    ];
-
-    return november2025Dates;
+    }
+    
+    return dates;
   }
 
-  // Generate available times for a specific date in 2025
+  // Generate available times for a specific date
   generateAvailableTimes(selectedDate = null) {
-    const allTimes = [
-      { id: 'time_1', value: '09:00', display: '9:00 AM', isAvailable: true },
-      { id: 'time_2', value: '10:00', display: '10:00 AM', isAvailable: true },
-      { id: 'time_3', value: '11:00', display: '11:00 AM', isAvailable: true },
-      { id: 'time_4', value: '12:00', display: '12:00 PM', isAvailable: true },
-      { id: 'time_5', value: '13:00', display: '1:00 PM', isAvailable: true },
-      { id: 'time_6', value: '14:00', display: '2:00 PM', isAvailable: true },
-      { id: 'time_7', value: '15:00', display: '3:00 PM', isAvailable: true },
-      { id: 'time_8', value: '16:00', display: '4:00 PM', isAvailable: true }
-    ];
-
-    if (!selectedDate) {
-      return allTimes;
+    const times = [];
+    
+    // Generate time slots from 9 AM to 5 PM
+    for (let hour = this.businessHours.start; hour < this.businessHours.end; hour++) {
+      for (let minute = 0; minute < 60; minute += 60) { // Hourly slots
+        const time24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const displayTime = this.formatTime(hour, minute);
+        
+        // Check if this time slot is available for the selected date
+        const isAvailable = selectedDate ? this.isSlotAvailable(selectedDate, displayTime) : true;
+        
+        if (isAvailable) {
+          times.push({
+            id: `time_${hour}_${minute}`,
+            value: time24,
+            display: displayTime,
+            hour: hour,
+            minute: minute,
+            isAvailable: isAvailable
+          });
+        }
+      }
     }
+    
+    return times;
+  }
 
-    // Check availability based on booked slots
-    return allTimes.map(time => {
-      const isAvailable = this.isSlotAvailable(selectedDate, time.display);
-      return {
-        ...time,
-        isAvailable: isAvailable,
-        availability: isAvailable ? '✅ Available' : '❌ Booked'
-      };
-    });
+  // Format time to 12-hour format
+  formatTime(hour, minute) {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    const displayMinute = minute === 0 ? '00' : minute.toString().padStart(2, '0');
+    return `${displayHour}:${displayMinute} ${period}`;
   }
 
   // Get available slots for a specific date
@@ -123,8 +111,7 @@ class CalendarService {
   }
 
   // Format date to readable format
-  formatDate(dateString) {
-    const date = new Date(dateString);
+  formatDate(date) {
     const options = { 
       weekday: 'short', 
       month: 'short', 
@@ -168,7 +155,7 @@ class CalendarService {
       meetingId: meetingId || 'MTG_' + Date.now()
     });
     
-    console.log('📅 Slot booked for 2025:', { date, time, meetingId });
+    console.log('📅 Slot booked:', { date, time, meetingId });
     
     return {
       success: true,
@@ -211,10 +198,10 @@ class CalendarService {
 
   // Get next available slots
   getNextAvailableSlots(limit = 3) {
-    const availableDates = this.generateAvailableDates();
     const availableSlots = [];
+    const dates = this.generateAvailableDates(14);
     
-    for (const date of availableDates) {
+    for (const date of dates) {
       const times = this.getAvailableSlotsForDate(date.value);
       for (const time of times) {
         if (availableSlots.length < limit) {
@@ -232,14 +219,14 @@ class CalendarService {
 
   // DEBUG: Get current calendar state
   getCalendarState() {
+    const today = new Date();
     const availableDates = this.generateAvailableDates();
     
     return {
-      currentYear: 2025,
+      currentDate: today.toISOString(),
       availableDates: availableDates,
-      bookedSlots: this.getBookedSlots(),
-      businessHours: this.businessHours,
-      totalAvailableSlots: availableDates.reduce((sum, date) => sum + date.availableSlots, 0)
+      bookedSlots: Array.from(this.bookedSlots.entries()),
+      businessHours: this.businessHours
     };
   }
 }

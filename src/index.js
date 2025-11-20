@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path'); // Added for better path handling
 
 // Load environment variables
 dotenv.config();
@@ -28,7 +29,9 @@ app.use(cors({
       'http://www.meezandevelopers.com',
       // Keep localhost for emergency admin access
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'http://localhost:3001', // Added for direct backend access
+      'http://127.0.0.1:3001'  // Added for direct backend access
     ];
     
     // Check if origin is in allowed list
@@ -82,7 +85,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
-  // CORS headers (redundant but safe)
+    // CORS headers (redundant but safe)
   if (req.headers.origin) {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   }
@@ -398,8 +401,14 @@ app.get('/api/test-email', async (req, res) => {
 
 // Load chat routes - MUST BE AFTER ALL SPECIFIC ENDPOINTS
 console.log('🔄 Loading AI Agent chat routes...');
-app.use('/api', require('./routes/chat'));
-console.log('✅ AI Agent chat routes loaded successfully');
+try {
+  const chatRoutes = require('./routes/chat');
+  app.use('/api', chatRoutes);
+  console.log('✅ AI Agent chat routes loaded successfully');
+} catch (error) {
+  console.error('❌ Failed to load chat routes:', error.message);
+  console.log('💡 Make sure your routes/chat.js file exists and is properly configured');
+}
 
 // ==================== ERROR HANDLERS (MUST BE LAST) ====================
 

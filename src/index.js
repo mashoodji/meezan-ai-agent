@@ -67,42 +67,42 @@ app.get('/', (req, res) => {
 // ✅ DEBUG ENDPOINT - MUST BE BEFORE CHAT ROUTES
 app.get('/api/debug-email', async (req, res) => {
   try {
-    console.log('🔧 Debugging email service on deployed backend...');
+    console.log('🔧 Debugging Resend email service on deployed backend...');
     
     // Check environment variables
     const envCheck = {
-      EMAIL_USER: process.env.EMAIL_USER ? '✅ Set' : '❌ Missing',
-      EMAIL_PASS: process.env.EMAIL_PASS ? '✅ Set (hidden)' : '❌ Missing', 
-      EMAIL_FROM: process.env.EMAIL_FROM ? '✅ Set' : '❌ Missing',
+      RESEND_API_KEY: process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing',
+      COMPANY_EMAIL: process.env.COMPANY_EMAIL ? '✅ Set' : '❌ Missing',
       NODE_ENV: process.env.NODE_ENV || 'not set'
     };
     
     console.log('Environment Check:', envCheck);
     
-    const emailService = require('./services/emailService');
+    const resendEmailService = require('./services/resendEmailService');
     
     // Test with simple data
     const testData = {
       name: "Test User",
-      email: process.env.EMAIL_USER || 'mashoodji7@gmail.com',
+      email: process.env.COMPANY_EMAIL || 'meezandevelopers.official@gmail.com',
       projectType: "Test Project",
       date: "2024-01-01",
       time: "2:00 PM",
       id: "DEBUG_" + Date.now()
     };
     
-    console.log('📧 Testing email send...');
-    const result = await emailService.sendMeetingConfirmation(testData);
+    console.log('📧 Testing Resend email send...');
+    const result = await resendEmailService.sendMeetingConfirmation(testData);
     
     res.json({
-      success: result,
+      success: result.success,
       environment: envCheck,
-      message: result ? 'Email test passed' : 'Email test failed',
-      timestamp: new Date().toISOString(),
-      testData: {
-        to: testData.email,
-        from: process.env.EMAIL_FROM
-      }
+      message: result.success ? 'Resend email test passed' : 'Resend email test failed',
+      error: result.error,
+      messageIds: {
+        client: result.clientMessageId,
+        company: result.companyMessageId
+      },
+      timestamp: new Date().toISOString()
     });
     
   } catch (error) {
@@ -110,11 +110,9 @@ app.get('/api/debug-email', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       environment: {
-        EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Not set',
-        EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Not set',
-        EMAIL_FROM: process.env.EMAIL_FROM ? 'Set' : 'Not set',
+        RESEND_API_KEY: process.env.RESEND_API_KEY ? 'Set' : 'Not set',
+        COMPANY_EMAIL: process.env.COMPANY_EMAIL ? 'Set' : 'Not set',
         NODE_ENV: process.env.NODE_ENV || 'not set'
       }
     });
@@ -132,21 +130,23 @@ app.get('/api/test-email', async (req, res) => {
       });
     }
 
-    const emailService = require('./services/emailService');
+    const resendEmailService = require('./services/resendEmailService');
     
     const testMeeting = {
       name: "Test Client",
-      email: process.env.EMAIL_USER,
+      email: process.env.COMPANY_EMAIL,
       projectType: "Residential Construction",
       date: new Date().toDateString(),
-      time: "2:00 PM"
+      time: "2:00 PM",
+      id: "TEST_" + Date.now()
     };
     
-    const result = await emailService.sendMeetingConfirmation(testMeeting);
+    const result = await resendEmailService.sendMeetingConfirmation(testMeeting);
     
     res.json({ 
-      success: result,
-      message: result ? 'Test emails sent successfully' : 'Email sending failed'
+      success: result.success,
+      message: result.success ? 'Test emails sent successfully via Resend' : 'Email sending failed',
+      error: result.error
     });
   } catch (error) {
     res.status(500).json({ 
@@ -195,6 +195,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📍 Health: http://localhost:${PORT}/health`);
   console.log(`📍 Debug: http://localhost:${PORT}/api/debug-email`);
   console.log(`📍 Features: Meeting Booking + Email Automation`);
+  console.log(`📍 Email Service: Resend`);
 });
 
 // Graceful shutdown

@@ -1,110 +1,48 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-class EmailService {
+class ResendEmailService {
   constructor() {
-    this.transporter = null;
+    this.resend = null;
     this.initialized = false;
-    this.initializeTransporter();
+    this.initializeResend();
   }
 
-  initializeTransporter() {
+  initializeResend() {
     try {
-      console.log('🚀 Initializing Email Service...');
-      console.log('📧 Email:', process.env.EMAIL_USER);
-      console.log('🔑 Password set:', !!process.env.EMAIL_PASS);
+      console.log('🚀 Initializing Resend Email Service...');
+      console.log('🔑 Resend API Key:', process.env.RESEND_API_KEY ? 'Set' : 'Missing');
       
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.error('❌ Email credentials missing!');
+      if (!process.env.RESEND_API_KEY) {
+        console.error('❌ RESEND_API_KEY environment variable missing!');
         return;
       }
 
-      // WORKING Gmail configuration
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        // Important settings for Gmail
-        requireTLS: true,
-        tls: {
-          rejectUnauthorized: false
-        },
-        // Connection settings
-        connectionTimeout: 60000,
-        greetingTimeout: 30000,
-        socketTimeout: 60000,
-        // Debugging
-        debug: true,
-        logger: true
-      });
-
-      console.log('✅ Email transporter created successfully');
+      this.resend = new Resend(process.env.RESEND_API_KEY);
+      console.log('✅ Resend client initialized successfully');
       this.initialized = true;
       
     } catch (error) {
-      console.error('❌ Email transporter initialization failed:', error.message);
+      console.error('❌ Resend initialization failed:', error.message);
       this.initialized = false;
     }
   }
 
-  async verifyTransporter() {
-    if (!this.initialized || !this.transporter) {
-      console.error('❌ Transporter not initialized');
-      return false;
-    }
-
-    try {
-      console.log('🔍 Verifying email transporter...');
-      await this.transporter.verify();
-      console.log('✅ Email transporter verified successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ Email transporter verification failed:');
-      console.error('   Error:', error.message);
-      console.error('   Code:', error.code);
-      
-      if (error.code === 'EAUTH') {
-        console.error('🔐 AUTHENTICATION FAILED - Check:');
-        console.error('   • Gmail App Password (not regular password)');
-        console.error('   • 2FA enabled in Gmail');
-        console.error('   • Correct 16-character App Password');
-      } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-        console.error('🌐 CONNECTION FAILED - Try:');
-        console.error('   • Different network');
-        console.error('   • Check firewall settings');
-        console.error('   • Wait and retry');
-      }
-      
-      return false;
-    }
-  }
-
   async sendMeetingConfirmation(meetingData) {
-    console.log('\n📧 STARTING EMAIL PROCESS =================');
+    console.log('\n📧 STARTING RESEND EMAIL PROCESS =================');
     
     if (!this.initialized) {
-      console.error('❌ Email service not initialized properly');
-      return false;
-    }
-
-    // Always verify before sending
-    const isVerified = await this.verifyTransporter();
-    if (!isVerified) {
-      console.error('❌ Cannot send emails - transporter not verified');
-      return false;
+      console.error('❌ Resend service not initialized properly');
+      return { success: false, error: 'Resend service not initialized' };
     }
 
     try {
-      console.log('🎯 Preparing to send emails...');
+      console.log('🎯 Preparing to send emails via Resend...');
       console.log('   To Client:', meetingData.email);
-      console.log('   To Company:', process.env.EMAIL_FROM);
+      console.log('   To Company:', process.env.COMPANY_EMAIL);
 
       // Email to Client
       const clientEmail = {
-        from: `"Meezan Developers" <${process.env.EMAIL_FROM}>`,
+        from: 'Meezan Developers <onboarding@resend.dev>',
         to: meetingData.email,
         subject: 'Meeting Confirmed - Meezan Developers',
         html: this.getClientEmailTemplate(meetingData),
@@ -113,38 +51,45 @@ class EmailService {
 
       // Email to Company
       const companyEmail = {
-        from: `"Meezan Developers AI Agent" <${process.env.EMAIL_FROM}>`,
-        to: process.env.EMAIL_FROM,
+        from: 'Meezan Developers AI Agent <onboarding@resend.dev>',
+        to: process.env.COMPANY_EMAIL || 'meezandevelopers.official@gmail.com',
         subject: `New Meeting Scheduled - ${meetingData.name}`,
-        html: this.getCompanyEmailTemplate(meetingData),
-        text: `New meeting scheduled with ${meetingData.name} for ${meetingData.projectType}`
+        html: this.getCompanyEmailTemplate(meetingData)
       };
 
-      console.log('📤 Sending client email...');
-      const clientResult = await this.transporter.sendMail(clientEmail);
-      console.log('✅ Client email sent!');
-      console.log('   Message ID:', clientResult.messageId);
-      console.log('   Response:', clientResult.response);
+      console.log('📤 Sending client email via Resend...');
+      const clientResult = await this.resend.emails.send(clientEmail);
+      console.log('✅ Client email sent via Resend!');
+      console.log('   Message ID:', clientResult.data?.id);
 
-      console.log('📤 Sending company email...');
-      const companyResult = await this.transporter.sendMail(companyEmail);
-      console.log('✅ Company email sent!');
-      console.log('   Message ID:', companyResult.messageId);
+      console.log('📤 Sending company email via Resend...');
+      const companyResult = await this.resend.emails.send(companyEmail);
+      console.log('✅ Company email sent via Resend!');
+      console.log('   Message ID:', companyResult.data?.id);
 
-      console.log('🎉 ALL EMAILS SENT SUCCESSFULLY!');
-      return true;
+      console.log('🎉 ALL RESEND EMAILS SENT SUCCESSFULLY!');
+      return { 
+        success: true, 
+        clientMessageId: clientResult.data?.id,
+        companyMessageId: companyResult.data?.id
+      };
 
     } catch (error) {
-      console.error('💥 EMAIL SENDING FAILED:');
+      console.error('💥 RESEND EMAIL SENDING FAILED:');
       console.error('   Error:', error.message);
-      console.error('   Code:', error.code);
-      console.error('   Full Error:', error);
       
-      if (error.response) {
-        console.error('   Response:', error.response);
+      if (error.message.includes('API key')) {
+        console.error('   🔐 INVALID RESEND API KEY');
+        console.error('   💡 Get your API key from: https://resend.com/api-keys');
+      } else if (error.message.includes('domain')) {
+        console.error('   🌐 DOMAIN VERIFICATION NEEDED');
+        console.error('   💡 Verify your domain in Resend dashboard');
       }
       
-      return false;
+      return { 
+        success: false, 
+        error: error.message
+      };
     }
   }
 
@@ -341,4 +286,4 @@ Building Excellence Since 2009
   }
 }
 
-module.exports = new EmailService();
+module.exports = new ResendEmailService();

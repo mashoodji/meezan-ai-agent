@@ -4,7 +4,6 @@ const router = express.Router();
 const knowledge = require('../data/knowledge.json');
 
 // Import services
-const emailService = require('../services/emailService');
 const calendarService = require('../services/calendarService');
 
 // Store conversation contexts in memory
@@ -1068,65 +1067,75 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
     ));
   }
 
-  // Step 6: Send confirmation emails
-// In handleMeetingBooking function - Step 6
-if (meetingState.step === 6) {
-  const userResponse = userMessage.toLowerCase();
-  
-  if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
-    try {
-      console.log('📧 Attempting to send confirmation email from deployed backend...');
-      
-      const emailResult = await emailService.sendMeetingConfirmation(meetingState.data);
-      
-      if (emailResult) {
-        console.log('✅ Email sent successfully from deployed backend');
+  // Step 6: Send confirmation emails USING RESEND
+  if (meetingState.step === 6) {
+    const userResponse = userMessage.toLowerCase();
+    
+    if (userResponse.includes('yes') || userResponse.includes('send') || userResponse.includes('confirm')) {
+      try {
+        console.log('📧 Attempting to send confirmation email via Resend...');
+        
+        const emailResult = await resendEmailService.sendMeetingConfirmation(meetingState.data);
+        
+        if (emailResult.success) {
+          console.log('✅ Resend email sent successfully!');
+          console.log('   Client Message ID:', emailResult.clientMessageId);
+          console.log('   Company Message ID:', emailResult.companyMessageId);
+          
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
+            ["Schedule another meeting", "View our services", "Get cost estimate"],
+            'meeting_completed',
+            { 
+              meetingId: meetingState.data.id, 
+              emailSent: true,
+              messageIds: {
+                client: emailResult.clientMessageId,
+                company: emailResult.companyMessageId
+              }
+            },
+            sessionId
+          ));
+        } else {
+          console.log('⚠️ Resend email failed:', emailResult.error);
+          meetingStates.delete(sessionId);
+          
+          return res.json(formatResponse(
+            `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nMeeting ID: ${meetingState.data.id}\n\nOur team will contact you to confirm.`,
+            ["Schedule another meeting", "View our services", "Get cost estimate"],
+            'meeting_completed_fallback',
+            { meetingId: meetingState.data.id, emailSent: false },
+            sessionId
+          ));
+        }
+      } catch (error) {
+        console.error('❌ Email process error:', error);
         meetingStates.delete(sessionId);
         
         return res.json(formatResponse(
-          `✅ **Meeting Successfully Booked!**\n\nWe've sent a confirmation email to ${meetingState.data.email}. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
-          ["Schedule another meeting", "View our services", "Get cost estimate"],
-          'meeting_completed',
-          { meetingId: meetingState.data.id, emailSent: true },
-          sessionId
-        ));
-      } else {
-        console.log('⚠️ Email failed, but meeting was booked');
-        meetingStates.delete(sessionId);
-        
-        return res.json(formatResponse(
-          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled for ${meetingState.data.date} at ${meetingState.data.time}. \n\nMeeting ID: ${meetingState.data.id}\n\nOur team will contact you to confirm.`,
+          `✅ **Meeting Booked!**\n\nYour meeting has been scheduled. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
           ["Schedule another meeting", "View our services", "Get cost estimate"],
           'meeting_completed_fallback',
           { meetingId: meetingState.data.id, emailSent: false },
           sessionId
         ));
       }
-    } catch (error) {
-      console.error('❌ Email process error:', error);
+    } else {
+      // User canceled
       meetingStates.delete(sessionId);
-      
       return res.json(formatResponse(
-        `✅ **Meeting Booked!**\n\nYour meeting has been scheduled. Our team will contact you shortly.\n\nMeeting ID: ${meetingState.data.id}`,
-        ["Schedule another meeting", "View our services", "Get cost estimate"],
-        'meeting_completed_fallback',
-        { meetingId: meetingState.data.id, emailSent: false },
+        "Meeting booking canceled.",
+        ["Schedule meeting", "Our services", "Cost estimation"],
+        'meeting_canceled',
+        null,
         sessionId
       ));
     }
-  } else {
-    // User canceled
-    meetingStates.delete(sessionId);
-    return res.json(formatResponse(
-      "Meeting booking canceled.",
-      ["Schedule meeting", "Our services", "Cost estimation"],
-      'meeting_canceled',
-      null,
-      sessionId
-    ));
   }
 }
-}
+
 
 // ==================== CLEANUP AND MAINTENANCE ====================
 

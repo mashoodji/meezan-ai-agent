@@ -4,6 +4,7 @@ const router = express.Router();
 const knowledge = require('../data/knowledge.json');
 
 // Import services
+const resendEmailService = require('../services/resendEmailService');
 const calendarService = require('../services/calendarService');
 
 // Store conversation contexts in memory

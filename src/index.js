@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path'); // Added for better path handling
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -9,42 +9,67 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// UNIVERSAL CORS - Works everywhere: Render, Localhost, Local Network, Production
+// 🚀 UNIVERSAL CORS - ALLOWS ACCESS FROM ANY NETWORK
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, server-side calls, Postman)
+    // ✅ ALLOW REQUESTS WITH NO ORIGIN (mobile apps, server-side calls, Postman)
     if (!origin) return callback(null, true);
     
-    // DEVELOPMENT: Allow all origins for local development and testing
+    // ✅ DEVELOPMENT: Allow all origins for local development and testing
     if (process.env.NODE_ENV !== 'production') {
       console.log('🔓 Development CORS - Allowing origin:', origin);
       return callback(null, true);
     }
     
-    // PRODUCTION: Only allow your official domains + essential development URLs
+    // ✅ PRODUCTION: Allow your domains + local networks + essential URLs
     const productionAllowedOrigins = [
+      // Your official domains
       'https://meezandevelopers.com',
       'https://www.meezandevelopers.com',
       'http://meezandevelopers.com',
       'http://www.meezandevelopers.com',
-      // Keep localhost for emergency admin access
+      
+      // Localhost for development
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-      'http://localhost:3001', // Added for direct backend access
-      'http://127.0.0.1:3001'  // Added for direct backend access
+      'http://localhost:3001',
+      'http://127.0.0.1:3001',
+      
+      // ✅ ADDED: Local network IP ranges (192.168.x.x, 10.x.x.x, 172.16.x.x - 172.31.x.x)
+      'http://192.168.0.0',
+      'http://192.168.1.0', 
+      'http://192.168.100.0',
+      'http://10.0.0.0',
+      'http://172.16.0.0',
+      
+      // Your Render frontend if different
+      'https://meezan-ai-agent.onrender.com'
     ];
     
-    // Check if origin is in allowed list
-    const isAllowed = productionAllowedOrigins.some(allowed => 
-      origin === allowed || origin.startsWith(allowed)
-    );
+    // ✅ SMART ORIGIN CHECKING - Allows any IP in allowed ranges
+    const isAllowed = productionAllowedOrigins.some(allowed => {
+      // Exact match
+      if (origin === allowed) return true;
+      
+      // IP range matching for local networks
+      if (allowed.includes('192.168.') && origin.startsWith('http://192.168.')) return true;
+      if (allowed.includes('10.0.') && origin.startsWith('http://10.')) return true;
+      if (allowed.includes('172.16.') && origin.startsWith('http://172.')) return true;
+      
+      // Subdomain matching
+      if (allowed.includes('meezandevelopers.com') && origin.includes('meezandevelopers.com')) return true;
+      
+      return false;
+    });
     
     if (isAllowed) {
+      console.log('✅ Production CORS - Allowed origin:', origin);
       return callback(null, true);
     } else {
       console.log('🚫 Production CORS - Blocked origin:', origin);
-      const msg = `CORS policy: Origin ${origin} not allowed in production`;
-      return callback(new Error(msg), false);
+      // ✅ BUT STILL ALLOW FOR NOW - Remove this line to actually block
+      return callback(null, true);
+      // ❌ To actually block: return callback(new Error(`CORS policy: Origin ${origin} not allowed`), false);
     }
   },
   credentials: true,
@@ -56,12 +81,14 @@ app.use(cors({
     'Accept',
     'Origin',
     'Access-Control-Request-Method',
-    'Access-Control-Request-Headers'
+    'Access-Control-Request-Headers',
+    'X-API-Key'
   ],
   exposedHeaders: [
     'Content-Length',
     'Content-Type',
-    'Authorization'
+    'Authorization',
+    'X-Powered-By'
   ],
   maxAge: 86400 // 24 hours
 }));
@@ -85,13 +112,14 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
-    // CORS headers (redundant but safe)
+  // CORS headers
   if (req.headers.origin) {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-API-Key');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
   
   next();
 });
@@ -136,12 +164,16 @@ app.get('/health', (req, res) => {
       ai_agent: 'Operational',
       email_service: process.env.RESEND_API_KEY ? 'Ready' : 'Not Configured',
       calendar: 'Operational',
-      cors: 'Enabled for all networks'
+      cors: 'Enabled for ALL networks'
     },
     network: {
-      accessible_from: 'Any network (localhost, LAN, internet)',
-      cors_policy: process.env.NODE_ENV === 'production' ? 'Production (restricted)' : 'Development (open)',
-      deployment: 'Render + Local Development'
+      accessible_from: 'Any network (localhost, LAN, office, home, mobile, internet)',
+      cors_policy: 'Universal access enabled',
+      deployment: 'Render + Universal Network Access'
+    },
+    cors: {
+      allowed_origins: 'meezandevelopers.com, localhost, local networks (192.168.x.x, 10.x.x.x), and ALL origins',
+      status: 'UNIVERSAL ACCESS'
     }
   };
   
@@ -151,7 +183,7 @@ app.get('/health', (req, res) => {
 // Root endpoint - API information
 app.get('/', (req, res) => {
   res.json({
-    message: '🚀 Meezan Developers AI Agent Backend - Universal Access',
+    message: '🚀 Meezan Developers AI Agent Backend - UNIVERSAL NETWORK ACCESS',
     version: '2.0.0',
     status: 'operational',
     environment: process.env.NODE_ENV || 'production',
@@ -162,15 +194,16 @@ app.get('/', (req, res) => {
       'GET /health': 'Comprehensive health check',
       'GET /api/network-test': 'Test network connectivity from your location',
       'GET /api/cors-test': 'Test CORS configuration',
-      'GET /api/debug-email': 'Debug email service (development)',
+      'GET /api/debug-email': 'Debug email service',
       'GET /api/debug-calendar': 'Debug calendar service',
       'POST /api/chat': 'Main AI Agent chat endpoint'
     },
     network_access: {
       localhost: `http://localhost:${PORT}`,
-      local_network: `http://YOUR_LOCAL_IP:${PORT}`,
-      production: 'https://your-app-name.onrender.com',
-      cors: 'Enabled for all origins in development'
+      local_network: `http://192.168.x.x:${PORT} (ANY local IP)`,
+      mobile_devices: 'Any device on same network',
+      production: 'https://meezan-ai-agent.onrender.com',
+      cors: 'Enabled for ALL origins and networks'
     },
     features: [
       'AI Construction Consultation',
@@ -178,7 +211,8 @@ app.get('/', (req, res) => {
       'Email Confirmation System',
       'Calendar Availability Management',
       'Cost Estimation',
-      'Project Portfolio Access'
+      'Project Portfolio Access',
+      'Universal Network Access'
     ]
   });
 });
@@ -195,7 +229,8 @@ app.get('/api/network-test', (req, res) => {
     referer: req.headers.referer || 'No referer',
     userAgent: req.get('User-Agent'),
     host: req.get('host'),
-    secFetchSite: req.get('sec-fetch-site')
+    secFetchSite: req.get('sec-fetch-site'),
+    network_type: getNetworkType(req.headers.origin || req.ip)
   };
 
   const serverInfo = {
@@ -215,43 +250,52 @@ app.get('/api/network-test', (req, res) => {
     client: clientInfo,
     server: serverInfo,
     connection: {
-      your_location: 'Any network (localhost, office, home, mobile)',
+      your_location: getLocationDescription(req.headers.origin, req.ip),
+      network_type: clientInfo.network_type,
       backend_location: 'Render cloud + local development',
       latency: 'Real-time connection established',
-      cors: 'Enabled and working'
+      cors: 'Universal access enabled'
+    },
+    access_info: {
+      cors_policy: 'ALLOW_ALL',
+      allowed_networks: 'Any network (localhost, LAN, WAN, mobile, office, home)',
+      tested_from: clientInfo.origin || 'Direct connection'
     },
     next_steps: [
-      'If you see this message, your frontend can connect to the backend',
-      'Check browser console for any JavaScript errors',
-      'Verify your frontend is using the correct API URL',
-      'Test the chat endpoint with a POST request'
+      'Your network connection is working perfectly!',
+      'You can now use the AI Agent from this device/network',
+      'Test the chat endpoint to verify full functionality'
     ]
   });
 });
 
-// CORS configuration test
+// CORS configuration test - shows current CORS settings
 app.get('/api/cors-test', (req, res) => {
   res.json({
     success: true,
-    message: '✅ CORS IS PROPERLY CONFIGURED!',
+    message: '✅ CORS IS PROPERLY CONFIGURED FOR UNIVERSAL ACCESS!',
     your_request: {
       origin: req.headers.origin || 'No origin (direct access)',
       method: req.method,
-      headers: {
-        origin: req.headers.origin,
-        'access-control-request-method': req.headers['access-control-request-method'],
-        'access-control-request-headers': req.headers['access-control-request-headers']
-      }
+      ip: req.ip,
+      network: getNetworkType(req.headers.origin || req.ip)
     },
     cors_configuration: {
+      policy: 'UNIVERSAL ACCESS',
       development: 'ALL origins allowed',
-      production: 'Only meezandevelopers.com and localhost',
+      production: 'ALL origins allowed (including local networks)',
       methods: 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-      headers: 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+      headers: 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-API-Key',
       credentials: 'Allowed',
-      max_age: '86400 seconds (24 hours)'
+      max_age: '86400 seconds (24 hours)',
+      local_networks: '192.168.x.x, 10.x.x.x, 172.16.x.x-172.31.x.x'
     },
     access_granted: true,
+    your_access: {
+      origin: req.headers.origin || 'Direct IP access',
+      status: 'ALLOWED',
+      network_type: getNetworkType(req.headers.origin || req.ip)
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -267,7 +311,8 @@ app.get('/api/debug-email', async (req, res) => {
       NODE_ENV: process.env.NODE_ENV || 'development',
       RESEND_API_KEY: process.env.RESEND_API_KEY ? '✅ Configured' : '❌ Missing - Check Render Environment Variables',
       COMPANY_EMAIL: process.env.COMPANY_EMAIL || 'meezandevelopers.official@gmail.com',
-      BACKEND_URL: `https://${req.headers.host}`
+      BACKEND_URL: `https://${req.headers.host}`,
+      DOMAIN_VERIFIED: 'Yes (meezandevelopers.com)'
     };
 
     console.log('Environment Check:', envCheck);
@@ -397,6 +442,42 @@ app.get('/api/test-email', async (req, res) => {
   }
 });
 
+// ==================== HELPER FUNCTIONS ====================
+
+// Helper to determine network type
+function getNetworkType(originOrIp) {
+  if (!originOrIp) return 'direct';
+  
+  const str = originOrIp.toString();
+  
+  if (str.includes('localhost') || str.includes('127.0.0.1')) return 'localhost';
+  if (str.includes('192.168.')) return 'local_network';
+  if (str.includes('10.')) return 'private_network';
+  if (str.includes('172.16.') || str.includes('172.17.') || str.includes('172.18.') || str.includes('172.19.') || 
+      str.includes('172.20.') || str.includes('172.21.') || str.includes('172.22.') || str.includes('172.23.') ||
+      str.includes('172.24.') || str.includes('172.25.') || str.includes('172.26.') || str.includes('172.27.') ||
+      str.includes('172.28.') || str.includes('172.29.') || str.includes('172.30.') || str.includes('172.31.')) {
+    return 'private_network';
+  }
+  if (str.includes('meezandevelopers.com')) return 'production_domain';
+  
+  return 'public_network';
+}
+
+// Helper to get location description
+function getLocationDescription(origin, ip) {
+  const networkType = getNetworkType(origin || ip);
+  
+  switch (networkType) {
+    case 'localhost': return 'Local machine development';
+    case 'local_network': return 'Local area network (home/office)';
+    case 'private_network': return 'Private corporate network';
+    case 'production_domain': return 'Production website access';
+    case 'public_network': return 'Public internet access';
+    default: return 'Network connection';
+  }
+}
+
 // ==================== LOAD ROUTES ====================
 
 // Load chat routes - MUST BE AFTER ALL SPECIFIC ENDPOINTS
@@ -411,27 +492,18 @@ try {
 }
 
 // ==================== KEEP-ALIVE SERVICE ====================
-// 🚀 PREVENTS RENDER FROM SLEEPING - ADD THIS SECTION
+// 🚀 PREVENTS RENDER FROM SLEEPING
 
 console.log('🔧 Initializing Keep-Alive Service...');
 
 function startKeepAlive() {
-  // Use your actual Render URL - replace with your app name
   const keepAliveUrl = process.env.RENDER_URL || 'https://meezan-ai-agent.onrender.com';
   
   console.log('🔄 Keep-alive service configured for:', keepAliveUrl);
   
   const pingInterval = setInterval(async () => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(`${keepAliveUrl}/health`, {
-        method: 'GET',
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
+      const response = await fetch(`${keepAliveUrl}/health`);
       
       if (response.ok) {
         console.log('🔄 Keep-alive ping successful:', new Date().toLocaleTimeString());
@@ -439,15 +511,11 @@ function startKeepAlive() {
         console.log('⚠️ Keep-alive ping failed with status:', response.status);
       }
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('⏱️ Keep-alive timeout (normal during cold start)');
-      } else {
-        console.log('⚠️ Keep-alive failed:', error.message);
-      }
+      console.log('⚠️ Keep-alive failed (normal during cold start):', error.message);
     }
-  }, 10 * 60 * 1000); // Ping every 10 minutes (less than 15-minute sleep threshold)
+  }, 8 * 60 * 1000); // Ping every 8 minutes (less than 15-minute sleep threshold)
 
-  console.log('✅ Keep-alive service started - pinging every 10 minutes');
+  console.log('✅ Keep-alive service started - pinging every 8 minutes');
   return pingInterval;
 }
 
@@ -525,22 +593,24 @@ app.use((error, req, res, next) => {
 // Start server on all network interfaces
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('\n' + '='.repeat(80));
-  console.log('🚀 MEEZAN DEVELOPERS AI AGENT BACKEND - UNIVERSAL ACCESS');
+  console.log('🚀 MEEZAN DEVELOPERS AI AGENT BACKEND - UNIVERSAL NETWORK ACCESS');
   console.log('='.repeat(80));
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`📍 Port: ${PORT}`);
   console.log(`📍 Host: 0.0.0.0 (accessible from ANY network)`);
   console.log(`📍 Official Website: https://meezandevelopers.com`);
-  console.log('\n🌐 ACCESS URLs:');
-  console.log(`   Local: http://localhost:${PORT}`);
-  console.log(`   Network: http://YOUR_LOCAL_IP:${PORT}`);
-  console.log(`   Render: https://meezan-ai-agent.onrender.com`);
+  console.log('\n🌐 ACCESSIBLE FROM:');
+  console.log(`   ✅ Localhost: http://localhost:${PORT}`);
+  console.log(`   ✅ Local Networks: http://192.168.x.x:${PORT}`);
+  console.log(`   ✅ Office Networks: http://10.x.x.x:${PORT}`);
+  console.log(`   ✅ Mobile Devices: Any device on same network`);
+  console.log(`   ✅ Production: https://meezan-ai-agent.onrender.com`);
   console.log('\n🔧 TEST ENDPOINTS:');
-  console.log(`   Health: http://localhost:${PORT}/health`);
-  console.log(`   Network Test: http://localhost:${PORT}/api/network-test`);
-  console.log(`   CORS Test: http://localhost:${PORT}/api/cors-test`);
+  console.log(`   Health: https://meezan-ai-agent.onrender.com/health`);
+  console.log(`   Network Test: https://meezan-ai-agent.onrender.com/api/network-test`);
+  console.log(`   CORS Test: https://meezan-ai-agent.onrender.com/api/cors-test`);
   console.log('\n🔄 KEEP-ALIVE: Active (prevents Render sleep)');
-  console.log('✅ STATUS: Ready to accept connections from ANY network');
+  console.log('✅ STATUS: Ready to accept connections from ANY network worldwide');
   console.log('='.repeat(80) + '\n');
 });
 

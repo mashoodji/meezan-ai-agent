@@ -29,8 +29,15 @@ const conversationStates = {
   COST_TYPE_SELECTION: 'cost_type_selection'
 };
 
-// Updated calculator URL for production
-const CALCULATOR_URL = 'https://meezandevelopers.com/construction-cost';
+// Website URLs for redirection
+const WEBSITE_URLS = {
+  HOME: 'https://meezandevelopers.com',
+  SERVICES: 'https://meezandevelopers.com/services',
+  PORTFOLIO: 'https://meezandevelopers.com/portfolio',
+  CONSTRUCTION_COST: 'https://meezandevelopers.com/construction-cost',
+  ABOUT: 'https://meezandevelopers.com/about',
+  CONTACT: 'https://meezandevelopers.com/contact'
+};
 
 // AI Agent Personality Configuration
 const AGENT_PERSONALITY = {
@@ -265,6 +272,110 @@ function isMeetingRequest(userMessage) {
   return meetingKeywords.some(keyword => userMessage.includes(keyword));
 }
 
+// ==================== WEBSITE REDIRECTION HANDLERS ====================
+
+// Enhanced redirect handler for website pages
+function handleWebsiteRedirect(userMessage) {
+  const lowerMessage = userMessage.toLowerCase();
+  
+  // Home page redirects
+  if (lowerMessage.includes('tell me about yourself') || 
+      lowerMessage.includes('about yourself') ||
+      lowerMessage.includes('who are you') ||
+      lowerMessage.includes('what is meezan developers') ||
+      lowerMessage.includes('company overview') ||
+      lowerMessage.includes('learn about company') ||
+      lowerMessage.includes('your company') ||
+      lowerMessage.includes('about company')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.HOME,
+      page: 'home',
+      message: `🏗️ **Meezan Developers - Company Overview**\n\nI'd love to tell you about our company! Let me redirect you to our official website where you can learn all about Meezan Developers, our mission, values, and construction expertise.\n\nYou'll find comprehensive information about our ${knowledge.company.yearsExperience} years in the construction industry and our commitment to quality.`
+    };
+  }
+  
+  // Services page redirects
+  if (lowerMessage.includes('view portfolio') || 
+      lowerMessage.includes('see portfolio') ||
+      lowerMessage.includes('our services') ||
+      lowerMessage.includes('construction services') ||
+      lowerMessage.includes('what services') ||
+      lowerMessage.includes('services offered') ||
+      lowerMessage.includes('view services') ||
+      lowerMessage.includes('service portfolio') ||
+      lowerMessage.includes('types of construction') ||
+      lowerMessage.includes('what do you build') ||
+      lowerMessage.includes('construction projects')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.SERVICES,
+      page: 'services',
+      message: `🏗️ **Our Construction Services & Portfolio**\n\nPerfect! Let me show you our comprehensive construction services and project portfolio. I'm redirecting you to our services page where you can explore:\n\n• Residential Construction Projects\n• Commercial Building Expertise\n• Industrial Facility Development\n• Infrastructure & Specialized Construction\n\nYou'll see our ${knowledge.projectPortfolio.totalCompleted} completed projects and detailed service offerings.`
+    };
+  }
+  
+  // Portfolio page redirects
+  if (lowerMessage.includes('completed projects') || 
+      lowerMessage.includes('past projects') ||
+      lowerMessage.includes('our work') ||
+      lowerMessage.includes('project gallery') ||
+      lowerMessage.includes('see our work') ||
+      lowerMessage.includes('construction portfolio') ||
+      lowerMessage.includes('project examples')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.PORTFOLIO,
+      page: 'portfolio',
+      message: `📊 **Our Project Portfolio**\n\nI'd love to show you our construction achievements! Let me redirect you to our portfolio page where you can explore:\n\n• ${knowledge.projectPortfolio.residential} Residential Projects\n• ${knowledge.projectPortfolio.commercial} Commercial Buildings\n• ${knowledge.projectPortfolio.industrial} Industrial Facilities\n• And many more specialized constructions\n\nSee how we've brought construction visions to life!`
+    };
+  }
+  
+  // Cost calculator redirects (existing)
+  if (lowerMessage.includes('calculate cost') || 
+      lowerMessage.includes('cost calculator') ||
+      lowerMessage.includes('detailed calculator') ||
+      lowerMessage.includes('construction calculator')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.CONSTRUCTION_COST,
+      page: 'cost_calculator',
+      message: `🔗 **Detailed Cost Calculator**\n\nFor precise construction cost calculations, I recommend our specialized cost calculator.\n\nIt provides accurate estimates based on:\n• Specific project requirements\n• Local material costs\n• Construction methodology\n• Quality specifications\n\nThis tool incorporates our ${knowledge.projectPortfolio.totalCompleted} projects of experience for reliable pricing.`
+    };
+  }
+  
+  // About page redirects
+  if (lowerMessage.includes('about us') || 
+      lowerMessage.includes('company history') ||
+      lowerMessage.includes('our story') ||
+      lowerMessage.includes('mission and vision')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.ABOUT,
+      page: 'about',
+      message: `🏢 **About Meezan Developers**\n\nLet me share our company story with you! I'm redirecting you to our about page where you can learn about:\n\n• Our ${knowledge.company.yearsExperience}-year journey\n• Company mission and values\n• Leadership team\n• Quality standards and commitment\n\nDiscover what makes us a trusted construction partner.`
+    };
+  }
+  
+  // Contact page redirects
+  if (lowerMessage.includes('contact us') || 
+      lowerMessage.includes('get in touch') ||
+      lowerMessage.includes('visit office') ||
+      lowerMessage.includes('location') ||
+      lowerMessage.includes('phone number') ||
+      lowerMessage.includes('email address') ||
+      lowerMessage.includes('office address')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.CONTACT,
+      page: 'contact',
+      message: `📞 **Contact Meezan Developers**\n\nI'd be happy to connect you with our team! Let me redirect you to our contact page where you'll find:\n\n• Office locations and addresses\n• Phone numbers and email\n• Contact form for inquiries\n• Office hours and availability\n\nOur team is ready to assist with your construction project!`
+    };
+  }
+  
+  return null;
+}
+
 // ==================== AI AGENT ROUTE HANDLERS ====================
 
 router.post('/chat', async (req, res) => {
@@ -309,6 +420,26 @@ router.post('/chat', async (req, res) => {
     // Keep conversation history manageable
     if (context.conversationHistory.length > 10) {
       context.conversationHistory = context.conversationHistory.slice(-8);
+    }
+
+    // Check for website redirection first
+    const redirectInfo = handleWebsiteRedirect(userMessage);
+    if (redirectInfo) {
+      console.log('🤖 AI Agent redirecting to:', redirectInfo.page, redirectInfo.url);
+      
+      const response = formatResponse(
+        redirectInfo.message,
+        ["Continue Chat", "Schedule Consultation", "Cost Estimation"],
+        redirectInfo.action,
+        { 
+          redirectUrl: redirectInfo.url,
+          page: redirectInfo.page
+        },
+        sessionId
+      );
+      
+      logConversation(sessionId, message, response, context);
+      return res.json(response);
     }
 
     // Check if user is in the middle of meeting booking
@@ -548,8 +679,8 @@ async function handleCostCalculator(res, sessionId, context) {
   const response = formatResponse(
     calculatorResponse,
     ["Get Custom Estimate", "Expert Consultation", "Our Construction Services"],
-    'redirect_calculator',
-    { redirectUrl: CALCULATOR_URL },
+    'redirect_website',
+    { redirectUrl: WEBSITE_URLS.CONSTRUCTION_COST, page: 'cost_calculator' },
     sessionId
   );
   

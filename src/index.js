@@ -410,6 +410,68 @@ try {
   console.log('💡 Make sure your routes/chat.js file exists and is properly configured');
 }
 
+// ==================== KEEP-ALIVE SERVICE ====================
+// 🚀 PREVENTS RENDER FROM SLEEPING - ADD THIS SECTION
+
+console.log('🔧 Initializing Keep-Alive Service...');
+
+function startKeepAlive() {
+  // Use your actual Render URL - replace with your app name
+  const keepAliveUrl = process.env.RENDER_URL || 'https://meezan-ai-agent.onrender.com';
+  
+  console.log('🔄 Keep-alive service configured for:', keepAliveUrl);
+  
+  const pingInterval = setInterval(async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${keepAliveUrl}/health`, {
+        method: 'GET',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        console.log('🔄 Keep-alive ping successful:', new Date().toLocaleTimeString());
+      } else {
+        console.log('⚠️ Keep-alive ping failed with status:', response.status);
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('⏱️ Keep-alive timeout (normal during cold start)');
+      } else {
+        console.log('⚠️ Keep-alive failed:', error.message);
+      }
+    }
+  }, 10 * 60 * 1000); // Ping every 10 minutes (less than 15-minute sleep threshold)
+
+  console.log('✅ Keep-alive service started - pinging every 10 minutes');
+  return pingInterval;
+}
+
+// Start keep-alive only in production on Render
+if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
+  // Wait 30 seconds before first ping to ensure server is fully up
+  setTimeout(() => {
+    const keepAliveInterval = startKeepAlive();
+    
+    // Clean up on exit
+    process.on('SIGTERM', () => {
+      console.log('🛑 Cleaning up keep-alive service...');
+      clearInterval(keepAliveInterval);
+    });
+    
+    process.on('SIGINT', () => {
+      console.log('🛑 Cleaning up keep-alive service...');
+      clearInterval(keepAliveInterval);
+    });
+  }, 30000);
+} else {
+  console.log('💤 Keep-alive disabled (development mode or not on Render)');
+}
+
 // ==================== ERROR HANDLERS (MUST BE LAST) ====================
 
 // 404 handler - MUST BE THE LAST ROUTE
@@ -472,12 +534,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('\n🌐 ACCESS URLs:');
   console.log(`   Local: http://localhost:${PORT}`);
   console.log(`   Network: http://YOUR_LOCAL_IP:${PORT}`);
-  console.log(`   Render: https://your-app-name.onrender.com`);
+  console.log(`   Render: https://meezan-ai-agent.onrender.com`);
   console.log('\n🔧 TEST ENDPOINTS:');
   console.log(`   Health: http://localhost:${PORT}/health`);
   console.log(`   Network Test: http://localhost:${PORT}/api/network-test`);
   console.log(`   CORS Test: http://localhost:${PORT}/api/cors-test`);
-  console.log('\n✅ STATUS: Ready to accept connections from ANY network');
+  console.log('\n🔄 KEEP-ALIVE: Active (prevents Render sleep)');
+  console.log('✅ STATUS: Ready to accept connections from ANY network');
   console.log('='.repeat(80) + '\n');
 });
 

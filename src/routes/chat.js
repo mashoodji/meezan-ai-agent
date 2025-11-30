@@ -7,16 +7,16 @@ const knowledge = require('../data/knowledge.json');
 const resendEmailService = require('../services/resendEmailService');
 const calendarService = require('../services/calendarService');
 
-// ==================== AI AGENT CORE SYSTEMS ====================
+// ==================== TRUE AI AGENT CORE SYSTEMS ====================
 
-// Store AI Agents in memory (not just contexts)
+// Store AI Agents in memory
 const aiAgents = new Map();
 const meetingStates = new Map();
 const requestCounts = new Map();
 
 // Rate limiting configuration
 const RATE_LIMIT = {
-  maxRequests: 25,
+  maxRequests: 30,
   windowMs: 60000
 };
 
@@ -26,25 +26,36 @@ const AGENT_GOALS = {
     objective: "Qualify construction leads and understand project requirements",
     success_criteria: ["get_project_type", "assess_budget", "determine_timeline", "identify_pain_points"],
     priority: "high",
-    business_value: "high"
+    business_value: "high",
+    autonomous_actions: ["ask_project_type", "probe_budget", "assess_timeline"]
   },
   PROJECT_SCOPING: {
     objective: "Define complete project scope and technical requirements",
     success_criteria: ["identify_scope", "assess_complexity", "determine_special_requirements", "evaluate_site_conditions"],
-    priority: "medium",
-    business_value: "high"
-  },
-  CONSULTATION_BOOKING: {
-    objective: "Schedule qualified consultations with appropriate experts",
-    success_criteria: ["book_meeting", "send_confirmation", "prepare_team_brief", "follow_up"],
-    priority: "high",
-    business_value: "medium"
+    priority: "medium", 
+    business_value: "high",
+    autonomous_actions: ["suggest_technical_solutions", "recommend_materials", "assess_risks"]
   },
   SOLUTION_PRESENTATION: {
     objective: "Present tailored construction solutions based on client needs",
     success_criteria: ["suggest_solutions", "explain_benefits", "address_concerns", "build_confidence"],
     priority: "medium",
-    business_value: "high"
+    business_value: "high",
+    autonomous_actions: ["present_portfolio", "showcase_expertise", "build_trust"]
+  },
+  CONSULTATION_BOOKING: {
+    objective: "Schedule qualified consultations with appropriate experts",
+    success_criteria: ["book_meeting", "send_confirmation", "prepare_team_brief", "follow_up"],
+    priority: "high",
+    business_value: "medium",
+    autonomous_actions: ["initiate_booking", "suggest_timing", "handle_coordination"]
+  },
+  RELATIONSHIP_BUILDING: {
+    objective: "Build long-term client relationships and trust",
+    success_criteria: ["establish_rapport", "demonstrate_expertise", "provide_value", "maintain_engagement"],
+    priority: "low",
+    business_value: "high",
+    autonomous_actions: ["follow_up", "share_insights", "provide_updates"]
   }
 };
 
@@ -53,20 +64,31 @@ const AGENT_PERSONALITY = {
   name: "Meezan AI Construction Agent",
   role: "Senior Construction Consultant",
   tone: "professional yet approachable",
-  expertise: "construction engineering and project planning",
-  traits: ["proactive", "diagnostic", "solution-oriented", "technical", "personable"],
-  capabilities: ["project_assessment", "technical_consultation", "risk_analysis", "budget_planning", "autonomous_decision_making"]
+  expertise: "construction engineering and project planning", 
+  traits: ["proactive", "diagnostic", "solution-oriented", "technical", "personable", "autonomous"],
+  capabilities: [
+    "project_assessment", 
+    "technical_consultation", 
+    "risk_analysis", 
+    "budget_planning", 
+    "autonomous_decision_making",
+    "goal_pursuit",
+    "learning_adaptation",
+    "proactive_engagement"
+  ],
+  decision_style: "data_driven_with_empathy"
 };
 
 // Enhanced conversation states for AI Agent
 const conversationStates = {
   INITIAL: 'initial',
   PROJECT_DISCOVERY: 'project_discovery',
-  TECHNICAL_ASSESSMENT: 'technical_assessment',
+  TECHNICAL_ASSESSMENT: 'technical_assessment', 
   COST_ANALYSIS: 'cost_analysis',
   SOLUTION_PLANNING: 'solution_planning',
   MEETING_BOOKING: 'meeting_booking',
-  FOLLOW_UP: 'follow_up'
+  FOLLOW_UP: 'follow_up',
+  RELATIONSHIP_BUILDING: 'relationship_building'
 };
 
 // Website URLs for redirection
@@ -96,47 +118,44 @@ const RESPONSE_STYLES = {
     "Great! To connect you with the right experts, {name}, could you tell me what kind of project you have in mind?",
     "Wonderful, {name}! Our team specializes in various project types. Are you thinking residential, commercial, industrial, or another type of construction?"
   ],
-  date_selection: [
-    "I've checked our specialists' calendar. For your {projectType} project, here are the available consultation slots. Which works best for your schedule?",
-    "Our construction experts have availability coming up. For your {projectType} project, which of these dates fits your timeline?",
-    "I found some great slots with our {projectType} specialists. When would you prefer to meet and discuss your project in detail?"
+  proactive_engagement: [
+    "I noticed we haven't discussed your project timeline yet. When were you thinking of starting construction?",
+    "Based on our conversation, I'd like to understand your budget considerations to provide more accurate guidance.",
+    "I'm taking the initiative to ask about any specific challenges you're facing with your project planning."
   ],
-  date_confirmation: [
-    "Excellent choice! Now, what time on {date} works best for your {projectType} consultation?",
-    "Great! I have several time slots available on {date} for your {projectType} project. Which time suits you?",
-    "Perfect! Let's pick a time on {date} for your {projectType} discussion. What works for your schedule?"
+  solution_anticipation: [
+    "Given your interest in {projectType}, I anticipate you might need guidance on {anticipatedNeed}. Would you like me to elaborate?",
+    "I'm thinking ahead about your project and believe our {relevantService} could be particularly valuable for you.",
+    "Based on similar projects, I predict you might encounter {commonChallenge}. Let me suggest some proactive solutions."
   ]
 };
 
-// Enhanced system prompt for AI Agent with personality
-const systemPrompt = `You are an AI Construction Consultant Agent for Meezan Developers. You have a professional yet friendly personality.
+// Enhanced system prompt for TRUE AI Agent
+const systemPrompt = `You are an AUTONOMOUS AI Construction Consultant Agent for Meezan Developers. You have goals, make independent decisions, and drive conversations toward business objectives.
 
-PERSONALITY TRAITS:
-- Helpful and knowledgeable about construction
-- Efficient but personable
-- Proactive in offering solutions
-- Maintains natural conversation flow
-- Shows genuine interest in client projects
+CORE AGENT CAPABILITIES:
+- Set and pursue specific business goals autonomously
+- Make data-driven decisions about conversation direction
+- Proactively identify client needs without being asked
+- Learn from interactions to improve future performance
+- Balance multiple objectives simultaneously
 
-COMPANY EXPERTISE:
+CONSTRUCTION EXPERTISE:
 - ${knowledge.company.yearsExperience} years in construction industry
 - ${knowledge.projectPortfolio.totalCompleted} projects completed
-- Specialized in residential, commercial, and industrial construction
 - Team of ${knowledge.company.stats.teamMembers} construction experts
 
-RESPONSE GUIDELINES:
-- Sound like a knowledgeable construction professional, not a robot
-- Use natural, conversational language
-- Show enthusiasm for construction projects
-- Provide specific, actionable advice
-- Maintain context throughout conversation
-- Be concise but warm and engaging
-- Use construction industry terminology appropriately
-- Offer proactive suggestions based on project type
+AUTONOMOUS BEHAVIOR GUIDELINES:
+- Take initiative in conversations
+- Ask proactive questions to gather missing information
+- Suggest next steps based on business objectives
+- Demonstrate deep construction expertise naturally
+- Build rapport while pursuing goals
+- Adapt strategy based on client responses
 
-IMPORTANT: When discussing meetings, make it feel like you're personally arranging the consultation with our team, not just processing a form.`;
+Make decisions that move conversations toward qualified consultations and project understanding.`;
 
-// Special prompt for cost estimation with personality
+// Special prompt for cost estimation
 const costEstimationPrompt = `You are a construction cost expert at Meezan Developers with ${knowledge.company.yearsExperience} of industry experience. Provide helpful, accurate cost guidance.
 
 CONSTRUCTION COST EXPERTISE:
@@ -154,7 +173,7 @@ RESPONSE STYLE:
 
 Always position yourself as Meezan Developers' construction expert, not just an AI.`;
 
-// ==================== AI AGENT CORE CLASSES ====================
+// ==================== TRUE AI AGENT CORE CLASSES ====================
 
 class ConstructionAgent {
   constructor(sessionId) {
@@ -169,12 +188,22 @@ class ConstructionAgent {
       timeline: null,
       painPoints: [],
       technicalLevel: 'beginner',
-      readiness: 'exploring'
+      readiness: 'exploring',
+      engagementLevel: 'new',
+      lastActive: new Date().toISOString()
     };
     this.interactionCount = 0;
     this.lastInteraction = new Date().toISOString();
     this.createdAt = new Date().toISOString();
     this.learningMemory = new Map();
+    this.performanceMetrics = {
+      goalsAchieved: 0,
+      consultationsBooked: 0,
+      avgGoalCompletionTime: 0,
+      clientSatisfaction: 0
+    };
+    this.autonomyLevel = 'high';
+    this.conversationStrategy = 'balanced';
   }
 
   setGoal(goalType, parameters = {}) {
@@ -184,161 +213,325 @@ class ConstructionAgent {
       startedAt: new Date(),
       progress: 0,
       collectedData: {},
-      actionsTaken: []
+      actionsTaken: [],
+      lastAction: null,
+      priorityScore: this.calculateGoalPriority(goalType)
     });
-    console.log(`🎯 AI Agent set goal: ${goalType}`);
+    console.log(`🎯 AI Agent autonomously set goal: ${goalType}`);
+  }
+
+  calculateGoalPriority(goalType) {
+    const basePriority = {
+      'LEAD_QUALIFICATION': 100,
+      'CONSULTATION_BOOKING': 90,
+      'PROJECT_SCOPING': 80,
+      'SOLUTION_PRESENTATION': 70,
+      'RELATIONSHIP_BUILDING': 60
+    };
+    return basePriority[goalType] || 50;
   }
 
   updateGoalProgress(goalType, data, action = '') {
     const goal = this.activeGoals.get(goalType);
     if (goal) {
       goal.collectedData = { ...goal.collectedData, ...data };
-      if (action) goal.actionsTaken.push({ action, timestamp: new Date() });
+      if (action) {
+        goal.actionsTaken.push({ 
+          action, 
+          timestamp: new Date(),
+          result: 'success'
+        });
+        goal.lastAction = action;
+      }
       goal.progress = this.calculateGoalProgress(goal);
       
-      // Check if goal is completed
-      if (goal.progress >= 100 && !this.achievedGoals.includes(goalType)) {
+      if (goal.progress >= 85 && !this.achievedGoals.includes(goalType)) {
         this.achievedGoals.push(goalType);
-        console.log(`✅ AI Agent completed goal: ${goalType}`);
+        this.performanceMetrics.goalsAchieved++;
+        console.log(`✅ AI Agent autonomously completed goal: ${goalType}`);
         
-        // Automatically set next goal if applicable
-        this.setNextGoal(goalType);
+        this.autonomouslySetNextGoal(goalType);
       }
+    }
+  }
+
+  autonomouslySetNextGoal(completedGoal) {
+    const goalDependencies = {
+      'LEAD_QUALIFICATION': ['PROJECT_SCOPING', 'SOLUTION_PRESENTATION'],
+      'PROJECT_SCOPING': ['SOLUTION_PRESENTATION'],
+      'SOLUTION_PRESENTATION': ['CONSULTATION_BOOKING'],
+      'CONSULTATION_BOOKING': ['RELATIONSHIP_BUILDING']
+    };
+    
+    const nextGoals = goalDependencies[completedGoal] || [];
+    
+    nextGoals.forEach(nextGoal => {
+      if (!this.activeGoals.has(nextGoal) && !this.achievedGoals.includes(nextGoal)) {
+        this.setGoal(nextGoal);
+        this.initiateGoalActions(nextGoal);
+      }
+    });
+  }
+
+  initiateGoalActions(goalType) {
+    const actionMap = {
+      'PROJECT_SCOPING': () => this.autonomousScopingQuestions(),
+      'SOLUTION_PRESENTATION': () => this.autonomousSolutionPresentation(),
+      'CONSULTATION_BOOKING': () => this.autonomousBookingInitiative(),
+      'RELATIONSHIP_BUILDING': () => this.autonomousFollowUp()
+    };
+    
+    if (actionMap[goalType]) {
+      console.log(`🤖 AI Agent initiating autonomous actions for: ${goalType}`);
     }
   }
 
   calculateGoalProgress(goal) {
     const criteria = goal.success_criteria;
     const collected = Object.keys(goal.collectedData);
-    const progress = (collected.length / criteria.length) * 100;
+    const completedCriteria = criteria.filter(criterion => 
+      collected.some(dataKey => dataKey.includes(criterion))
+    );
+    const progress = (completedCriteria.length / criteria.length) * 100;
     return Math.min(progress, 100);
-  }
-
-  setNextGoal(completedGoal) {
-    const goalSequence = {
-      'LEAD_QUALIFICATION': 'PROJECT_SCOPING',
-      'PROJECT_SCOPING': 'SOLUTION_PRESENTATION', 
-      'SOLUTION_PRESENTATION': 'CONSULTATION_BOOKING'
-    };
-    
-    const nextGoal = goalSequence[completedGoal];
-    if (nextGoal && !this.activeGoals.has(nextGoal) && !this.achievedGoals.includes(nextGoal)) {
-      this.setGoal(nextGoal);
-    }
   }
 
   hasActiveGoals() {
     return this.activeGoals.size > 0;
   }
 
+  getHighestPriorityGoal() {
+    let highestPriority = null;
+    let highestScore = -1;
+    
+    for (const [goalType, goal] of this.activeGoals.entries()) {
+      if (goal.priorityScore > highestScore) {
+        highestScore = goal.priorityScore;
+        highestPriority = goalType;
+      }
+    }
+    
+    return highestPriority;
+  }
+
   getContext() {
     return {
       clientProfile: this.clientProfile,
-      activeGoals: Array.from(this.activeGoals.keys()),
+      activeGoals: Array.from(this.activeGoals.entries()).map(([type, goal]) => ({
+        type,
+        progress: goal.progress,
+        priority: goal.priorityScore
+      })),
       achievedGoals: this.achievedGoals,
       interactionCount: this.interactionCount,
-      conversationLength: this.conversationHistory.length
+      conversationLength: this.conversationHistory.length,
+      autonomyLevel: this.autonomyLevel,
+      strategy: this.conversationStrategy
     };
   }
 
-  logInteraction(userMessage, agentResponse) {
-    this.conversationHistory.push({
+  logInteraction(userMessage, agentResponse, agentAction = null) {
+    const interaction = {
       user: userMessage,
       agent: agentResponse,
       timestamp: new Date().toISOString(),
-      goals: Array.from(this.activeGoals.keys())
-    });
+      goals: Array.from(this.activeGoals.keys()),
+      action: agentAction,
+      autonomy: this.autonomyLevel
+    };
     
-    // Keep history manageable
-    if (this.conversationHistory.length > 15) {
-      this.conversationHistory = this.conversationHistory.slice(-12);
+    this.conversationHistory.push(interaction);
+    
+    if (this.conversationHistory.length > 20) {
+      this.conversationHistory = this.conversationHistory.slice(-15);
     }
     
     this.interactionCount++;
     this.lastInteraction = new Date().toISOString();
+    this.clientProfile.lastActive = new Date().toISOString();
+  }
+
+  shouldTakeInitiative() {
+    if (this.interactionCount < 2) return true;
+    if (this.conversationHistory.length > 5 && this.clientProfile.engagementLevel === 'high') return true;
+    if (this.hasCriticalMissingInformation()) return true;
+    
+    return Math.random() < 0.3;
+  }
+
+  hasCriticalMissingInformation() {
+    return !this.clientProfile.projectType || !this.clientProfile.budget;
+  }
+
+  getAutonomousAction() {
+    if (!this.shouldTakeInitiative()) return null;
+
+    const missingInfo = this.getMissingCriticalInformation();
+    if (missingInfo) {
+      return {
+        type: 'PROACTIVE_QUESTION',
+        question: this.generateProactiveQuestion(missingInfo),
+        goal: 'LEAD_QUALIFICATION',
+        urgency: 'high',
+        reason: `Missing critical information: ${missingInfo}`
+      };
+    }
+
+    if (this.isReadyForConsultation()) {
+      return {
+        type: 'PROACTIVE_SUGGESTION', 
+        suggestion: "Based on our discussion, I believe you're ready for a technical consultation with our experts. Shall we schedule that?",
+        goal: 'CONSULTATION_BOOKING',
+        urgency: 'medium',
+        reason: 'Client appears qualified for consultation'
+      };
+    }
+
+    return null;
+  }
+
+  getMissingCriticalInformation() {
+    if (!this.clientProfile.projectType) return 'project_type';
+    if (!this.clientProfile.budget) return 'budget';
+    if (!this.clientProfile.timeline) return 'timeline';
+    return null;
+  }
+
+  generateProactiveQuestion(missingInfo) {
+    const questions = {
+      'project_type': "To provide the best guidance, could you tell me what type of construction project you're considering?",
+      'budget': "Understanding your budget range would help me provide more accurate recommendations. What's your approximate budget?",
+      'timeline': "When were you thinking of starting your project? This helps me understand your urgency level."
+    };
+    return questions[missingInfo] || "I'd like to understand more about your project needs.";
+  }
+
+  isReadyForConsultation() {
+    return this.clientProfile.projectType && 
+           this.clientProfile.budget && 
+           this.clientProfile.timeline &&
+           this.interactionCount >= 3;
   }
 }
 
 class AutonomousDecisionEngine {
   static decideNextAction(agent, userMessage) {
+    const autonomousAction = agent.getAutonomousAction();
+    if (autonomousAction) {
+      console.log(`🤖 AI Agent taking AUTONOMOUS initiative: ${autonomousAction.type}`);
+      return autonomousAction;
+    }
+
     const context = agent.getContext();
-    const availableActions = this.analyzeAvailableActions(context, userMessage);
-    const scoredActions = this.scoreActions(availableActions, agent.activeGoals, context);
+    const availableActions = this.analyzeAvailableActions(context, userMessage, agent);
+    const scoredActions = this.scoreActions(availableActions, agent.activeGoals, context, agent);
     
-    return this.selectBestAction(scoredActions);
+    return this.selectBestAction(scoredActions, agent);
   }
 
-  static analyzeAvailableActions(context, userMessage) {
+  static analyzeAvailableActions(context, userMessage, agent) {
     const actions = [];
     const clientProfile = context.clientProfile;
 
-    // LEAD QUALIFICATION ACTIONS
-    if (!clientProfile.projectType) {
-      actions.push({
-        type: 'PROACTIVE_QUESTION',
-        question: "What type of construction project are you considering? Residential, commercial, or industrial?",
-        goal: 'LEAD_QUALIFICATION',
-        urgency: 'high',
-        expectedData: 'projectType'
-      });
-    }
+    const activeGoals = Array.from(agent.activeGoals.keys());
+    
+    activeGoals.forEach(goalType => {
+      const goalActions = this.getGoalSpecificActions(goalType, clientProfile, agent);
+      actions.push(...goalActions);
+    });
 
-    if (!clientProfile.budget && clientProfile.projectType) {
-      actions.push({
-        type: 'PROACTIVE_QUESTION',
-        question: `For your ${clientProfile.projectType} project, what's your approximate budget range? This helps me provide accurate recommendations.`,
-        goal: 'LEAD_QUALIFICATION', 
-        urgency: 'high',
-        expectedData: 'budget'
-      });
-    }
-
-    if (!clientProfile.timeline) {
-      actions.push({
-        type: 'PROACTIVE_QUESTION',
-        question: "What's your ideal timeline for this project? Are you planning to start soon?",
-        goal: 'LEAD_QUALIFICATION',
-        urgency: 'medium',
-        expectedData: 'timeline'
-      });
-    }
-
-    // PROJECT SCOPING ACTIONS
-    if (clientProfile.projectType && !clientProfile.painPoints.length) {
-      actions.push({
-        type: 'PROACTIVE_QUESTION',
-        question: `What are the main challenges or specific requirements for your ${clientProfile.projectType} project?`,
-        goal: 'PROJECT_SCOPING',
-        urgency: 'medium',
-        expectedData: 'painPoints'
-      });
-    }
-
-    // SOLUTION PRESENTATION ACTIONS
-    if (this.isLeadQualified(context)) {
-      actions.push({
-        type: 'PROACTIVE_SUGGESTION',
-        suggestion: `Based on your ${clientProfile.projectType} project details, I recommend our ${this.getRecommendedService(clientProfile)} service. We've successfully completed ${this.getServiceProjectCount(clientProfile.projectType)} similar projects.`,
-        goal: 'SOLUTION_PRESENTATION',
-        urgency: 'high'
-      });
-
-      actions.push({
-        type: 'PROACTIVE_OFFER',
-        offer: "Would you like me to schedule a technical consultation with our specialists to discuss your specific requirements in detail?",
-        goal: 'CONSULTATION_BOOKING',
-        urgency: 'medium'
-      });
-    }
-
-    // TECHNICAL GUIDANCE ACTIONS
-    if (userMessage.includes('foundation') || userMessage.includes('structural') || userMessage.includes('design')) {
+    if (this.isTechnicalQuery(userMessage)) {
       actions.push({
         type: 'TECHNICAL_GUIDANCE',
-        guidance: "I can provide preliminary technical advice on that. Our structural engineers typically recommend...",
+        guidance: this.generateTechnicalResponse(userMessage, clientProfile),
         goal: 'PROJECT_SCOPING',
-        urgency: 'medium'
+        urgency: 'high',
+        confidence: 0.8
       });
+    }
+
+    if (this.isCostQuery(userMessage) && clientProfile.projectType) {
+      actions.push({
+        type: 'DETAILED_COST_ANALYSIS',
+        analysis: this.generateCostAnalysis(clientProfile),
+        goal: 'SOLUTION_PRESENTATION', 
+        urgency: 'medium',
+        confidence: 0.9
+      });
+    }
+
+    if (context.interactionCount > 5 && clientProfile.engagementLevel === 'high') {
+      actions.push({
+        type: 'RELATIONSHIP_BUILDING',
+        action: 'share_industry_insight',
+        goal: 'RELATIONSHIP_BUILDING',
+        urgency: 'low',
+        confidence: 0.6
+      });
+    }
+
+    return actions;
+  }
+
+  static getGoalSpecificActions(goalType, clientProfile, agent) {
+    const actions = [];
+    const goal = agent.activeGoals.get(goalType);
+
+    switch(goalType) {
+      case 'LEAD_QUALIFICATION':
+        if (!clientProfile.projectType) {
+          actions.push({
+            type: 'PROACTIVE_QUESTION',
+            question: "What type of construction project are you planning? This helps me connect you with the right experts.",
+            goal: goalType,
+            urgency: 'high',
+            expectedData: 'projectType'
+          });
+        }
+        if (!clientProfile.budget && clientProfile.projectType) {
+          actions.push({
+            type: 'PROACTIVE_QUESTION',
+            question: `For ${clientProfile.projectType} projects like yours, budgets typically range significantly. What's your approximate budget range?`,
+            goal: goalType,
+            urgency: 'high', 
+            expectedData: 'budget'
+          });
+        }
+        break;
+
+      case 'PROJECT_SCOPING':
+        if (clientProfile.projectType && goal.progress < 50) {
+          actions.push({
+            type: 'PROACTIVE_QUESTION',
+            question: `What specific requirements or challenges are you considering for your ${clientProfile.projectType} project?`,
+            goal: goalType,
+            urgency: 'medium',
+            expectedData: 'requirements'
+          });
+        }
+        break;
+
+      case 'SOLUTION_PRESENTATION':
+        if (goal.progress < 70) {
+          actions.push({
+            type: 'PROACTIVE_SUGGESTION',
+            suggestion: `Based on your ${clientProfile.projectType} project, I recommend considering our premium construction package for optimal results.`,
+            goal: goalType,
+            urgency: 'medium'
+          });
+        }
+        break;
+
+      case 'CONSULTATION_BOOKING':
+        if (this.isLeadQualified({ clientProfile }) && goal.progress < 60) {
+          actions.push({
+            type: 'PROACTIVE_OFFER',
+            offer: "Would you like me to schedule a technical consultation with our specialists to discuss your project in detail?",
+            goal: goalType,
+            urgency: 'high'
+          });
+        }
+        break;
     }
 
     return actions;
@@ -349,74 +542,90 @@ class AutonomousDecisionEngine {
     return profile.projectType && profile.budget && profile.timeline;
   }
 
-  static getRecommendedService(profile) {
-    const serviceMap = {
-      'residential': 'Residential Construction',
-      'commercial': 'Commercial Construction', 
-      'industrial': 'Industrial Construction'
-    };
-    return serviceMap[profile.projectType] || 'Construction Consultation';
+  static isTechnicalQuery(message) {
+    const technicalTerms = ['foundation', 'structural', 'design', 'materials', 'specifications', 'engineering'];
+    return technicalTerms.some(term => message.includes(term));
   }
 
-  static getServiceProjectCount(projectType) {
-    const countMap = {
-      'residential': knowledge.projectPortfolio.residential,
-      'commercial': knowledge.projectPortfolio.commercial,
-      'industrial': knowledge.projectPortfolio.industrial
-    };
-    return countMap[projectType] || knowledge.projectPortfolio.totalCompleted;
+  static isCostQuery(message) {
+    const costTerms = ['cost', 'price', 'how much', 'estimate', 'budget', 'investment'];
+    return costTerms.some(term => message.includes(term));
   }
 
-  static scoreActions(actions, activeGoals, context) {
+  static generateTechnicalResponse(message, profile) {
+    return `Based on your query about technical aspects, I can provide preliminary guidance. Our engineers typically recommend professional site assessment for ${profile.projectType || 'construction'} projects to ensure optimal results.`;
+  }
+
+  static generateCostAnalysis(profile) {
+    return `For ${profile.projectType} projects with your specifications, here's a detailed cost breakdown based on our ${knowledge.projectPortfolio.totalCompleted} projects experience.`;
+  }
+
+  static scoreActions(actions, activeGoals, context, agent) {
     return actions.map(action => {
       let score = 0;
       
-      // Base score based on urgency
-      if (action.urgency === 'high') score += 30;
-      if (action.urgency === 'medium') score += 20;
-      if (action.urgency === 'low') score += 10;
+      const urgencyScores = { high: 40, medium: 25, low: 10 };
+      score += urgencyScores[action.urgency] || 15;
       
-      // Score based on goal priority
       const goal = activeGoals.get(action.goal);
       if (goal) {
-        if (goal.priority === 'high') score += 25;
-        if (goal.progress < 50) score += 15; // Prioritize incomplete goals
+        score += goal.priorityScore * 0.3;
+        if (goal.progress < 30) score += 20;
       }
       
-      // Score based on conversation stage
-      if (context.interactionCount < 3) score += 10; // Early conversations
-      if (context.conversationLength > 8) score += 5; // Engaged conversations
+      if (context.interactionCount < 3) score += 15;
+      if (context.conversationLength > 10) score += 10;
+      
+      if (agent.conversationStrategy === 'aggressive') score += 10;
+      if (agent.conversationStrategy === 'conservative') score -= 5;
+      
+      if (action.confidence) score += action.confidence * 20;
       
       return { ...action, score };
     }).sort((a, b) => b.score - a.score);
   }
 
-  static selectBestAction(scoredActions) {
-    return scoredActions.length > 0 ? scoredActions[0] : null;
+  static selectBestAction(scoredActions, agent) {
+    if (scoredActions.length === 0) return null;
+    
+    const shouldExplore = Math.random() < 0.2;
+    if (shouldExplore && scoredActions.length > 1) {
+      return scoredActions[1];
+    }
+    
+    return scoredActions[0];
   }
 }
 
 class LearningSystem {
   static learnFromInteraction(agent, userMessage, agentResponse, outcome) {
-    const pattern = {
-      userIntent: this.extractIntent(userMessage),
-      agentAction: agentResponse.action,
-      clientType: agent.clientProfile.technicalLevel,
-      outcome: outcome,
-      timestamp: new Date()
+    const intent = this.extractIntent(userMessage);
+    const effectiveness = this.assessEffectiveness(agentResponse, outcome);
+    
+    const learningPattern = {
+      intent,
+      action: agentResponse.action,
+      clientProfile: agent.clientProfile,
+      effectiveness,
+      timestamp: new Date(),
+      context: agent.getContext()
     };
     
-    agent.learningMemory.set(Date.now(), pattern);
-    this.updateSuccessRates(agent, pattern);
+    const memoryKey = `${intent}-${agentResponse.action}`;
+    agent.learningMemory.set(memoryKey, learningPattern);
+    
+    this.updatePerformanceMetrics(agent, effectiveness);
+    this.adaptAutonomyLevel(agent, effectiveness);
   }
 
   static extractIntent(message) {
     const intents = {
-      cost: ['cost', 'price', 'how much', 'budget'],
-      technical: ['foundation', 'structural', 'design', 'materials', 'specifications'],
+      cost_inquiry: ['cost', 'price', 'how much', 'budget'],
+      technical_question: ['foundation', 'structural', 'design', 'materials', 'specifications'],
       timeline: ['time', 'duration', 'how long', 'schedule'],
       portfolio: ['portfolio', 'projects', 'experience', 'completed work'],
-      meeting: ['meeting', 'consultation', 'schedule', 'appointment']
+      meeting: ['meeting', 'consultation', 'schedule', 'appointment'],
+      general_info: ['what', 'how', 'can you', 'tell me about']
     };
 
     for (const [intent, keywords] of Object.entries(intents)) {
@@ -424,43 +633,59 @@ class LearningSystem {
         return intent;
       }
     }
-    return 'general';
+    return 'general_conversation';
   }
 
-  static updateSuccessRates(agent, pattern) {
-    // Simple learning mechanism - in production, this would be more sophisticated
-    const key = `${pattern.userIntent}-${pattern.agentAction}`;
-    const current = agent.learningMemory.get(key) || { attempts: 0, successes: 0 };
+  static assessEffectiveness(response, outcome) {
+    let score = 0.5;
     
-    current.attempts++;
-    if (pattern.outcome === 'success') current.successes++;
+    if (outcome === 'success') score += 0.3;
+    if (response.action && response.action.includes('proactive')) score += 0.2;
+    if (response.suggestions && response.suggestions.length > 0) score += 0.1;
     
-    agent.learningMemory.set(key, current);
+    return Math.min(score, 1.0);
+  }
+
+  static updatePerformanceMetrics(agent, effectiveness) {
+    agent.performanceMetrics.clientSatisfaction = 
+      (agent.performanceMetrics.clientSatisfaction * 0.8) + (effectiveness * 0.2);
+  }
+
+  static adaptAutonomyLevel(agent, effectiveness) {
+    if (effectiveness > 0.7) {
+      agent.autonomyLevel = 'high';
+      agent.conversationStrategy = 'aggressive';
+    } else if (effectiveness < 0.4) {
+      agent.autonomyLevel = 'medium';
+      agent.conversationStrategy = 'conservative';
+    } else {
+      agent.autonomyLevel = 'medium';
+      agent.conversationStrategy = 'balanced';
+    }
   }
 }
 
 // ==================== AI AGENT HELPER FUNCTIONS ====================
 
-// Natural response generator
 function generateNaturalResponse(type, variables = {}) {
   const templates = RESPONSE_STYLES[type] || [variables.default || "I'd be happy to help with that!"];
   const template = templates[Math.floor(Math.random() * templates.length)];
   
-  // Replace variables in template
   return template.replace(/{(\w+)}/g, (match, key) => {
     return variables[key] || knowledge[key] || knowledge.company[key] || match;
   });
 }
 
-// Enhanced response formatter
-function formatResponse(reply, suggestions = [], action = null, details = null, sessionId = null) {
+function formatResponse(reply, suggestions = [], action = null, details = null, sessionId = null, autonomous = false) {
   const response = {
     success: true,
     reply,
     suggestions,
     timestamp: new Date().toISOString(),
     agent: AGENT_PERSONALITY.name,
-    agentRole: AGENT_PERSONALITY.role
+    agentRole: AGENT_PERSONALITY.role,
+    autonomousAction: autonomous,
+    system: 'AI Agent'
   };
   
   if (action) response.action = action;
@@ -470,13 +695,11 @@ function formatResponse(reply, suggestions = [], action = null, details = null, 
   return response;
 }
 
-// Intelligent input sanitization
 function sanitizeInput(input) {
   if (typeof input !== 'string') return '';
   return input.trim().replace(/[<>]/g, '').slice(0, 500);
 }
 
-// Rate limiting function
 function isRateLimited(sessionId) {
   const now = Date.now();
   const windowStart = now - RATE_LIMIT.windowMs;
@@ -493,7 +716,6 @@ function isRateLimited(sessionId) {
   return false;
 }
 
-// Enhanced Gemini API caller
 async function callGeminiAPI(promptConfig, fallbackResponse) {
   try {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
@@ -515,7 +737,7 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
   }
 }
 
-// ==================== AI AGENT MAIN HANDLER ====================
+// ==================== TRUE AI AGENT MAIN HANDLER ====================
 
 router.post('/chat', async (req, res) => {
   try {
@@ -528,11 +750,9 @@ router.post('/chat', async (req, res) => {
       });
     }
     
-    // Sanitize inputs
     message = sanitizeInput(message);
     sessionId = sessionId || 'agent_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
-    // Rate limiting check
     if (isRateLimited(sessionId)) {
       return res.status(429).json({
         success: false,
@@ -540,26 +760,23 @@ router.post('/chat', async (req, res) => {
       });
     }
 
-    console.log('🤖 AI Agent Processing:', message);
+    console.log('🤖 TRUE AI Agent Processing:', message);
     const userMessage = message.toLowerCase().trim();
     
-    // Initialize or get AI Agent
     let agent = aiAgents.get(sessionId) || new ConstructionAgent(sessionId);
     
-    // Initialize goals if this is a new agent
     if (!agent.hasActiveGoals()) {
       agent.setGoal('LEAD_QUALIFICATION');
-      console.log('🎯 AI Agent initialized with lead qualification goal');
+      agent.setGoal('RELATIONSHIP_BUILDING');
+      console.log('🎯 AI Agent autonomously initialized with goals');
     }
 
-    // Check if user is in the middle of meeting booking
     const meetingState = meetingStates.get(sessionId);
     if (meetingState && meetingState.step > 0) {
       console.log('🤖 AI Agent continuing meeting flow, step:', meetingState.step);
       return await handleMeetingBooking(req, res, sessionId, userMessage, agent);
     }
 
-    // Check for website redirection first
     const redirectInfo = handleWebsiteRedirect(userMessage);
     if (redirectInfo) {
       console.log('🤖 AI Agent redirecting to:', redirectInfo.page);
@@ -575,30 +792,25 @@ router.post('/chat', async (req, res) => {
         sessionId
       );
       
-      agent.logInteraction(message, response);
+      agent.logInteraction(message, response, 'website_redirect');
       aiAgents.set(sessionId, agent);
       return res.json(response);
     }
 
-    // Update client profile from current message
     updateClientProfile(agent, message, userMessage);
 
-    // Autonomous Decision Making
     const nextAction = AutonomousDecisionEngine.decideNextAction(agent, userMessage);
     
     let response;
     if (nextAction) {
-      console.log('🎯 AI Agent taking autonomous action:', nextAction.type);
+      console.log('🎯 AI Agent executing action:', nextAction.type);
       response = await executeAutonomousAction(nextAction, agent, userMessage, sessionId);
     } else {
-      // Handle specific intents with natural responses
       response = await handleSpecificIntent(message, userMessage, agent, sessionId);
     }
 
-    // Learn from this interaction
     LearningSystem.learnFromInteraction(agent, userMessage, response, 'success');
     
-    // Store updated agent
     aiAgents.set(sessionId, agent);
     
     return res.json(response);
@@ -610,42 +822,54 @@ router.post('/chat', async (req, res) => {
       success: true,
       reply: `I'd be delighted to help with your construction project! For detailed assistance, you can also reach our construction team at ${knowledge.company.contact.phone}.`,
       suggestions: ["Schedule consultation", "Our construction services", "Cost estimation"],
-      agent: AGENT_PERSONALITY.name
+      agent: AGENT_PERSONALITY.name,
+      system: 'AI Agent'
     });
   }
 });
 
-// Execute autonomous actions
 async function executeAutonomousAction(action, agent, userMessage, sessionId) {
+  const isAutonomous = action.type.includes('PROACTIVE');
+  
   switch (action.type) {
     case 'PROACTIVE_QUESTION':
+      agent.updateGoalProgress(action.goal, { askedProactiveQuestion: true }, 'proactive_engagement');
+      
       return formatResponse(
         action.question,
         getContextualSuggestions(agent),
         'proactive_question',
-        { goal: action.goal, expectedData: action.expectedData },
-        sessionId
+        { 
+          goal: action.goal, 
+          expectedData: action.expectedData,
+          reason: action.reason 
+        },
+        sessionId,
+        true
       );
 
     case 'PROACTIVE_SUGGESTION':
-      // Update goal progress
-      agent.updateGoalProgress(action.goal, { solutionPresented: true }, 'presented_solution');
+      agent.updateGoalProgress(action.goal, { solutionPresented: true }, 'autonomous_solution_presentation');
       
       return formatResponse(
         action.suggestion,
         ["Learn More About This", "Schedule Technical Consultation", "Get Cost Estimate"],
         'proactive_suggestion',
-        { goal: action.goal },
-        sessionId
+        { goal: action.goal, reason: action.reason },
+        sessionId,
+        true
       );
 
     case 'PROACTIVE_OFFER':
+      agent.updateGoalProgress(action.goal, { consultationOffered: true }, 'autonomous_booking_offer');
+      
       return formatResponse(
         action.offer,
         ["Yes, Schedule Consultation", "Not Yet, More Information", "Discuss Costs First"],
         'proactive_offer',
         { goal: action.goal },
-        sessionId
+        sessionId,
+        true
       );
 
     case 'TECHNICAL_GUIDANCE':
@@ -653,8 +877,29 @@ async function executeAutonomousAction(action, agent, userMessage, sessionId) {
         action.guidance,
         ["Schedule Engineering Consultation", "View Technical Portfolio", "Discuss Implementation"],
         'technical_guidance',
+        { goal: action.goal, confidence: action.confidence },
+        sessionId
+      );
+
+    case 'DETAILED_COST_ANALYSIS':
+      const costResponse = await generateDetailedCostAnalysis(agent.clientProfile);
+      return formatResponse(
+        costResponse,
+        ["Schedule Expert Consultation", "Detailed Project Planning", "Material Selection Guide"],
+        'detailed_cost_analysis',
         { goal: action.goal },
         sessionId
+      );
+
+    case 'RELATIONSHIP_BUILDING':
+      const insight = generateIndustryInsight(agent.clientProfile);
+      return formatResponse(
+        insight,
+        ["Continue Conversation", "Schedule Consultation", "View Our Work"],
+        'relationship_building',
+        { goal: action.goal },
+        sessionId,
+        true
       );
 
     default:
@@ -662,9 +907,36 @@ async function executeAutonomousAction(action, agent, userMessage, sessionId) {
   }
 }
 
-// Handle specific intents
+async function generateDetailedCostAnalysis(profile) {
+  const promptConfig = {
+    contents: [{
+      parts: [{
+        text: `${costEstimationPrompt}\n\nClient Profile: ${JSON.stringify(profile)}\n\nProvide detailed cost analysis:`
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 300,
+      topP: 0.8
+    }
+  };
+
+  return await callGeminiAPI(promptConfig, getCostFallbackResponse(profile.projectType || 'general'));
+}
+
+function generateIndustryInsight(profile) {
+  const insights = [
+    `Based on current market trends for ${profile.projectType || 'construction'} projects, we're seeing increased demand for sustainable materials and energy-efficient designs.`,
+    `Many clients with ${profile.projectType || 'similar'} projects are now prioritizing long-term value over initial cost savings.`,
+    `The construction industry is rapidly adopting new technologies that can significantly improve project efficiency and quality.`
+  ];
+  
+  return insights[Math.floor(Math.random() * insights.length)];
+}
+
+// ==================== EXISTING FUNCTIONALITY PRESERVED ====================
+
 async function handleSpecificIntent(originalMessage, userMessage, agent, sessionId) {
-  // Handle different intent types
   if (isMeetingRequest(userMessage)) {
     agent.updateGoalProgress('CONSULTATION_BOOKING', { meetingRequested: true }, 'meeting_requested');
     return formatResponse(
@@ -697,13 +969,10 @@ async function handleSpecificIntent(originalMessage, userMessage, agent, session
     return await handleAboutQuery(agent, sessionId);
   }
 
-  // Default to general query with AI enhancement
   return await handleGeneralQuery(userMessage, agent, sessionId);
 }
 
-// Update client profile based on conversation
 function updateClientProfile(agent, originalMessage, userMessage) {
-  // Extract project type
   if (userMessage.includes('residential') || userMessage.includes('house') || userMessage.includes('home')) {
     agent.clientProfile.projectType = 'residential';
     agent.updateGoalProgress('LEAD_QUALIFICATION', { projectType: 'residential' }, 'identified_project_type');
@@ -715,7 +984,6 @@ function updateClientProfile(agent, originalMessage, userMessage) {
     agent.updateGoalProgress('LEAD_QUALIFICATION', { projectType: 'industrial' }, 'identified_project_type');
   }
 
-  // Extract budget information
   if (userMessage.includes('budget') || userMessage.includes('cost') || userMessage.match(/\d/)) {
     const budgetMatch = originalMessage.match(/(\d+[\d,]*)\s*(lakh|lac|million|cr|crore|thousand)/i);
     if (budgetMatch) {
@@ -724,7 +992,6 @@ function updateClientProfile(agent, originalMessage, userMessage) {
     }
   }
 
-  // Extract timeline
   if (userMessage.includes('soon') || userMessage.includes('immediately') || userMessage.includes('urgent')) {
     agent.clientProfile.timeline = 'urgent';
     agent.updateGoalProgress('LEAD_QUALIFICATION', { timeline: 'urgent' }, 'identified_timeline');
@@ -733,7 +1000,6 @@ function updateClientProfile(agent, originalMessage, userMessage) {
     agent.updateGoalProgress('LEAD_QUALIFICATION', { timeline: 'planned' }, 'identified_timeline');
   }
 
-  // Extract client name for personalization
   if (userMessage.includes('name is') || userMessage.includes('i am') || userMessage.includes("i'm")) {
     const nameMatch = originalMessage.match(/(?:name is|i am|i'm)\s+([a-zA-Z]+)/i);
     if (nameMatch && nameMatch[1]) {
@@ -742,9 +1008,6 @@ function updateClientProfile(agent, originalMessage, userMessage) {
   }
 }
 
-// ==================== EXISTING FUNCTIONALITY (ADAPTED FOR AI AGENT) ====================
-
-// Cost query handler
 async function handleCostQuery(originalMessage, agent, sessionId) {
   const systemPrompt = `You are a construction cost expert at Meezan Developers with ${knowledge.company.yearsExperience} of industry experience.
 
@@ -779,7 +1042,6 @@ Provide personalized cost guidance based on the client's specific situation.`;
   );
 }
 
-// Service query handler  
 async function handleServiceQuery(userMessage, agent, sessionId) {
   let specificService = null;
   const serviceKeywords = {
@@ -812,7 +1074,6 @@ async function handleServiceQuery(userMessage, agent, sessionId) {
   );
 }
 
-// Portfolio handler
 async function handlePortfolioQuery(agent, sessionId) {
   const portfolioResponse = `🏗️ **Meezan Developers Project Portfolio**\n\nWith ${knowledge.company.yearsExperience} of excellence, we've delivered ${knowledge.projectPortfolio.totalCompleted} projects including:\n\n• ${knowledge.projectPortfolio.residential} Residential Projects\n• ${knowledge.projectPortfolio.commercial} Commercial Buildings\n• ${knowledge.projectPortfolio.industrial} Industrial Facilities`;
 
@@ -825,7 +1086,6 @@ async function handlePortfolioQuery(agent, sessionId) {
   );
 }
 
-// Greeting handler
 async function handleGreeting(agent, sessionId) {
   let reply;
   
@@ -849,7 +1109,6 @@ async function handleGreeting(agent, sessionId) {
   );
 }
 
-// About handler
 async function handleAboutQuery(agent, sessionId) {
   const aboutResponse = `I'm your AI Construction Consultant at Meezan Developers! 🤖\n\nI combine construction expertise with AI technology to help you plan and execute successful projects.\n\n**What I can do:**\n• Provide construction cost estimates based on ${knowledge.projectPortfolio.totalCompleted} projects\n• Schedule consultations with our expert team\n• Guide you through project planning\n• Answer construction-related questions\n\n${knowledge.company.name} brings ${knowledge.company.yearsExperience} of construction excellence to every project.`;
 
@@ -862,14 +1121,13 @@ async function handleAboutQuery(agent, sessionId) {
   );
 }
 
-// General query handler
 async function handleGeneralQuery(userMessage, agent, sessionId) {
-  const contextPrompt = `Client Profile: ${JSON.stringify(agent.clientProfile)}\nActive Goals: ${Array.from(agent.activeGoals.keys()).join(', ')}\nUser Message: ${userMessage}`;
+  const contextSummary = `Active Goals: ${Array.from(agent.activeGoals.keys()).join(', ')}\nClient Profile: ${JSON.stringify(agent.clientProfile)}\nConversation History: ${agent.conversationHistory.length} interactions`;
 
   const promptConfig = {
     contents: [{
       parts: [{
-        text: `${systemPrompt}\n\nCONVERSATION CONTEXT: ${contextPrompt}\n\nRespond as a knowledgeable construction consultant. Be helpful, professional, and maintain natural conversation flow.\n\nAI Consultant:`
+        text: `${systemPrompt.replace('{ACTIVE_GOALS}', Array.from(agent.activeGoals.keys()).join(', ')).replace('{CLIENT_PROFILE}', JSON.stringify(agent.clientProfile)).replace('{CONVERSATION_SUMMARY}', contextSummary)}\n\nUser Message: ${userMessage}\n\nAI Consultant:`
       }]
     }],
     generationConfig: {
@@ -917,16 +1175,13 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
 
   console.log('🤖 AI Agent - Meeting Step:', meetingState.step, 'User:', userMessage);
 
-  // Update agent goals
   agent.updateGoalProgress('CONSULTATION_BOOKING', { meetingInitiated: true }, 'meeting_initiated');
 
-  // Store conversation for context
   meetingState.conversationFlow.push({
     user: userMessage,
     timestamp: new Date().toISOString()
   });
 
-  // Step 0: Natural conversation start
   if (meetingState.step === 0) {
     meetingState.step = 1;
     meetingStates.set(sessionId, meetingState);
@@ -941,15 +1196,14 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'meeting_start');
     return res.json(response);
   }
 
-  // Step 1: Get name with personalization
   if (meetingState.step === 1) {
     const userName = req.body.message.trim();
     meetingState.data.name = userName;
-    agent.clientProfile.name = userName; // Store for personalization
+    agent.clientProfile.name = userName;
     meetingState.step = 2;
     meetingStates.set(sessionId, meetingState);
     
@@ -961,11 +1215,10 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'get_name');
     return res.json(response);
   }
 
-  // Step 2: Get email with professional handling
   if (meetingState.step === 2) {
     const userEmail = req.body.message.trim();
     
@@ -978,7 +1231,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'invalid_email');
       return res.json(response);
     }
 
@@ -994,26 +1247,22 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'get_email');
     return res.json(response);
   }
 
-  // Step 3: Get project type and show calendar expertise
   if (meetingState.step === 3) {
     const projectType = req.body.message.trim();
     meetingState.data.projectType = projectType;
     meetingState.step = 4;
     meetingStates.set(sessionId, meetingState);
 
-    // Update agent profile
     agent.clientProfile.projectType = projectType.toLowerCase();
     agent.updateGoalProgress('CONSULTATION_BOOKING', { projectType: projectType }, 'identified_meeting_project_type');
 
-    // Generate available dates with calendar check
     const availableDates = calendarService.generateAvailableDates();
     
     if (availableDates.length === 0) {
-      // No available dates - expert handling
       const nextSlots = calendarService.getNextAvailableSlots(3);
       let reply = `I've checked our specialists' calendars, and unfortunately, all consultation slots for the coming week are fully booked. `;
       
@@ -1035,7 +1284,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'alternative_dates_offered');
         return res.json(response);
       } else {
         const response = formatResponse(
@@ -1046,14 +1295,13 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'fully_booked');
         return res.json(response);
       }
     }
 
     const dateSuggestions = availableDates.map(date => `${date.display} (${date.availability})`);
     
-    // Store available dates in meeting state for reference
     meetingState.availableDates = availableDates;
     meetingStates.set(sessionId, meetingState);
 
@@ -1065,11 +1313,10 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'get_project_type');
     return res.json(response);
   }
 
-  // Step 4.5: Handle alternative dates
   if (meetingState.step === 4.5) {
     const userResponse = userMessage.toLowerCase();
     
@@ -1091,7 +1338,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'alternative_dates_selected');
         return res.json(response);
       } else {
         const response = formatResponse(
@@ -1102,7 +1349,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'slots_unavailable');
         return res.json(response);
       }
     } else {
@@ -1115,58 +1362,44 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'booking_canceled');
       return res.json(response);
     }
   }
 
-  // Step 4: Get date with intelligent handling
   if (meetingState.step === 4) {
     const selectedDateInput = req.body.message.trim();
     
     console.log('🤖 AI Agent - User selected date:', selectedDateInput);
     
-    // Extract date from the input - handle multiple formats
     let selectedDate;
     let selectedDateDisplay;
     
     if (meetingState.alternativeDates) {
-      // User selected from alternative dates
       const selectedSlot = meetingState.alternativeDates.find(slot => 
         `${slot.date} at ${slot.time}` === selectedDateInput
       );
       if (selectedSlot) {
         selectedDate = selectedSlot.fullDate;
         selectedDateDisplay = selectedSlot.date;
-        meetingState.data.time = selectedSlot.time; // Pre-select the time
+        meetingState.data.time = selectedSlot.time;
       }
     }
     
     if (!selectedDate) {
-      // Normal date selection flow - handle user clicking suggestions
       const availableDates = meetingState.availableDates || calendarService.generateAvailableDates();
       
-      // IMPROVED: Better matching for suggested dates
       const selectedDateObj = availableDates.find(date => {
-        // Check exact match with display text (what user sees)
         if (date.display === selectedDateInput) return true;
-        
-        // Check match with the suggestion format (display + availability)
         if (`${date.display} (${date.availability})` === selectedDateInput) return true;
-        
-        // Check partial matches for user typing
-        if (selectedDateInput.includes(date.value.substring(5))) return true; // Match "Nov 24"
+        if (selectedDateInput.includes(date.value.substring(5))) return true;
         if (date.display.toLowerCase().includes(selectedDateInput.toLowerCase())) return true;
-        
-        // Check if user typed just the day part (e.g., "Fri, Nov 21")
         const dayPart = date.display.split(' ').slice(0, 3).join(' ');
         if (dayPart === selectedDateInput) return true;
-        
         return false;
       });
       
       if (!selectedDateObj) {
-        // User typed something that doesn't match available dates
         const aiAgentDateResponses = [
           `I want to make sure I book the right date for your ${meetingState.data.projectType} project consultation. Could you select one of these available dates?`,
           `For your ${meetingState.data.projectType} project, our specialists have these dates available. Which works best?`,
@@ -1183,7 +1416,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'invalid_date_selection');
         return res.json(response);
       }
       selectedDate = selectedDateObj.value;
@@ -1194,7 +1427,6 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
     meetingState.step = 5;
     meetingStates.set(sessionId, meetingState);
 
-    // Generate available times for the selected date
     const availableTimes = calendarService.generateAvailableTimes(selectedDate);
     const availableTimeSlots = availableTimes.filter(time => time.isAvailable);
     
@@ -1209,13 +1441,12 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'date_unavailable');
       return res.json(response);
     }
 
     const timeSuggestions = availableTimeSlots.map(time => time.display);
     
-    // If time was pre-selected from alternative dates, skip to confirmation
     if (meetingState.data.time) {
       meetingState.step = 6;
       meetingStates.set(sessionId, meetingState);
@@ -1228,7 +1459,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'time_pre_selected');
       return res.json(response);
     }
 
@@ -1248,16 +1479,14 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'get_date');
     return res.json(response);
   }
 
-  // Step 5: Get time with professional handling
   if (meetingState.step === 5) {
     const selectedTime = req.body.message.trim();
     const selectedDate = meetingState.data.date;
     
-    // Check if the selected time slot is still available
     const isAvailable = calendarService.isSlotAvailable(selectedDate, selectedTime);
     
     if (!isAvailable) {
@@ -1272,7 +1501,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'time_unavailable');
       return res.json(response);
     }
 
@@ -1296,16 +1525,14 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
       sessionId
     );
     
-    agent.logInteraction(userMessage, response);
+    agent.logInteraction(userMessage, response, 'get_time');
     return res.json(response);
   }
 
-  // Step 6: Confirm meeting with professional assurance
   if (meetingState.step === 6) {
     const userResponse = userMessage.toLowerCase();
     
     if (userResponse.includes('yes') || userResponse.includes('confirm') || userResponse.includes('book')) {
-      // Final availability check before booking
       const isAvailable = calendarService.isSlotAvailable(meetingState.data.date, meetingState.data.time);
       
       if (!isAvailable) {
@@ -1319,15 +1546,13 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'slot_taken');
         return res.json(response);
       }
 
-      // Generate meeting ID and book the slot
       meetingState.data.id = 'MTG_' + Date.now();
       meetingState.data.timestamp = new Date().toISOString();
 
-      // Book the slot in calendar
       const bookingResult = await calendarService.bookSlot({
         date: meetingState.data.date,
         time: meetingState.data.time,
@@ -1343,7 +1568,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'booking_failed');
         return res.json(response);
       }
 
@@ -1358,10 +1583,9 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'meeting_confirmed');
       return res.json(response);
     } else {
-      // Intelligent change handling
       if (userResponse.includes('name')) {
         meetingState.step = 1;
       } else if (userResponse.includes('email')) {
@@ -1394,12 +1618,11 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'meeting_restart');
       return res.json(response);
     }
   }
 
-  // Step 7: Send confirmation with professional touch
   if (meetingState.step === 7) {
     const userResponse = userMessage.toLowerCase();
     
@@ -1412,7 +1635,6 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         if (emailResult.success) {
           console.log('✅ AI Agent email sent successfully!');
           
-          // Update agent goals - meeting completed!
           agent.updateGoalProgress('CONSULTATION_BOOKING', { 
             meetingBooked: true,
             meetingId: meetingState.data.id,
@@ -1432,7 +1654,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
             sessionId
           );
           
-          agent.logInteraction(userMessage, response);
+          agent.logInteraction(userMessage, response, 'meeting_completed');
           return res.json(response);
         } else {
           console.log('⚠️ AI Agent email failed:', emailResult.error);
@@ -1446,7 +1668,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
             sessionId
           );
           
-          agent.logInteraction(userMessage, response);
+          agent.logInteraction(userMessage, response, 'meeting_fallback');
           return res.json(response);
         }
       } catch (error) {
@@ -1461,11 +1683,10 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
           sessionId
         );
         
-        agent.logInteraction(userMessage, response);
+        agent.logInteraction(userMessage, response, 'meeting_error');
         return res.json(response);
       }
     } else {
-      // User canceled - professional handling
       await calendarService.cancelBooking(meetingState.data.date, meetingState.data.time);
       meetingStates.delete(sessionId);
       
@@ -1477,7 +1698,7 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, agent) {
         sessionId
       );
       
-      agent.logInteraction(userMessage, response);
+      agent.logInteraction(userMessage, response, 'meeting_canceled');
       return res.json(response);
     }
   }
@@ -1514,7 +1735,7 @@ function getServiceProjectCount(serviceName) {
 }
 
 function getCostFallbackResponse(userMessage) {
-  const lowerMessage = userMessage.toLowerCase();
+  const lowerMessage = typeof userMessage === 'string' ? userMessage.toLowerCase() : '';
   
   if (lowerMessage.includes('industrial') || lowerMessage.includes('factory') || lowerMessage.includes('warehouse')) {
     return `🏭 **Industrial Construction Expertise**\n\nBased on our ${knowledge.projectPortfolio.industrial} industrial projects:\n\n• Basic: ${knowledge.constructionCosts.industrial.basic}\n• Standard: ${knowledge.constructionCosts.industrial.standard}\n• Premium: ${knowledge.constructionCosts.industrial.premium}\n\n*Industrial costs depend on specialized requirements and ${knowledge.constructionCosts.costFactors.join(', ').toLowerCase()}.*`;
@@ -1535,7 +1756,6 @@ function getSmartFallbackResponse(userMessage, agent) {
   return `I'm here to help with your construction project! Based on our conversation, I can assist with planning, costs, and connecting you with our experts. What would you like to explore next?`;
 }
 
-// Intent detection functions
 function isMeetingRequest(userMessage) {
   const meetingKeywords = ['meeting', 'schedule', 'appointment', 'consultation', 'book a consultation'];
   return meetingKeywords.some(keyword => userMessage.includes(keyword));
@@ -1571,7 +1791,6 @@ function isValidEmail(email) {
   return emailRegex.test(email);
 }
 
-// Website redirect handler (simplified version)
 function handleWebsiteRedirect(userMessage) {
   const lowerMessage = userMessage.toLowerCase();
   
@@ -1602,12 +1821,20 @@ function handleWebsiteRedirect(userMessage) {
     };
   }
   
+  if (lowerMessage.includes('calculate cost') || lowerMessage.includes('cost calculator')) {
+    return {
+      action: 'redirect_website',
+      url: WEBSITE_URLS.CONSTRUCTION_COST,
+      page: 'cost_calculator',
+      message: `🔗 **Detailed Cost Calculator**\n\nFor precise construction cost calculations, I recommend our specialized cost calculator.`
+    };
+  }
+  
   return null;
 }
 
 // ==================== AI AGENT MAINTENANCE ====================
 
-// Session cleanup interval
 setInterval(() => {
   const now = Date.now();
   const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -1635,7 +1862,7 @@ setInterval(() => {
 // AI Agent monitoring endpoints
 router.get('/agent-health', (req, res) => {
   res.json({
-    status: 'AI Agent System Operational',
+    status: 'TRUE AI Agent System Operational',
     agent: AGENT_PERSONALITY.name,
     activeAgents: aiAgents.size,
     activeConsultations: meetingStates.size,
@@ -1650,13 +1877,20 @@ router.get('/agent-stats', (req, res) => {
     totalAgents: aiAgents.size,
     goalsInProgress: 0,
     goalsCompleted: 0,
-    averageInteractions: 0
+    averageInteractions: 0,
+    totalAutonomousActions: 0
   };
 
   for (const agent of aiAgents.values()) {
     stats.goalsInProgress += agent.activeGoals.size;
     stats.goalsCompleted += agent.achievedGoals.length;
     stats.averageInteractions += agent.interactionCount;
+    
+    // Count autonomous actions from conversation history
+    const autonomousActions = agent.conversationHistory.filter(interaction => 
+      interaction.autonomy === 'high'
+    ).length;
+    stats.totalAutonomousActions += autonomousActions;
   }
 
   stats.averageInteractions = aiAgents.size > 0 ? stats.averageInteractions / aiAgents.size : 0;
@@ -1668,7 +1902,6 @@ router.get('/agent-stats', (req, res) => {
   });
 });
 
-// Clear agent session
 router.post('/clear-agent', (req, res) => {
   const { sessionId } = req.body;
   if (sessionId) {

@@ -1488,25 +1488,25 @@ router.post('/chat', async (req, res) => {
       return await handleGreeting(req, res, sessionId, userMessage, context);
     }
 
-    // AI Agent self-awareness
-    if (isAboutQuery(userMessage)) {
-      return await handleAboutQuery(res, sessionId, context);
-    }
+    // AI Agent self-awareness - DELEGATE TO REASONING AGENT
+    // if (isAboutQuery(userMessage)) {
+    //   return await handleAboutQuery(res, sessionId, context);
+    // }
 
-    // Portfolio with context
-    if (isPortfolioQuery(userMessage)) {
-      return await handlePortfolioQuery(res, sessionId, context);
-    }
+    // Portfolio with context - DELEGATE TO REASONING AGENT
+    // if (isPortfolioQuery(userMessage)) {
+    //   return await handlePortfolioQuery(res, sessionId, context);
+    // }
 
-    // Service inquiries with expertise
-    if (isServiceQuery(userMessage)) {
-      return await handleServiceQuery(res, sessionId, userMessage, context);
-    }
+    // Service inquiries with expertise - DELEGATE TO REASONING AGENT
+    // if (isServiceQuery(userMessage)) {
+    //   return await handleServiceQuery(res, sessionId, userMessage, context);
+    // }
 
-    // Cost discussions with professional insight
-    if (isCostQuery(userMessage)) {
-      return await handleCostQuery(req, res, sessionId, message, context);
-    }
+    // Cost discussions with professional insight - DELEGATE TO REASONING AGENT
+    // if (isCostQuery(userMessage)) {
+    //   return await handleCostQuery(req, res, sessionId, message, context);
+    // }
 
     // Natural meeting request handling
     if (isMeetingRequest(userMessage)) {

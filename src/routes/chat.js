@@ -740,6 +740,9 @@ class ToolUsageSystem {
         case 'WEATHER_CHECK':
           result = await this.checkWeatherImpact(parameters, context);
           break;
+        case 'CHECK_SERVICE_AREA':
+          result = await this.checkServiceArea(parameters, context);
+          break;
         default:
           result = { success: false, error: 'Tool not implemented' };
       }
@@ -793,6 +796,21 @@ class ToolUsageSystem {
         duration: parameters.deadline || '6 months',
         phases: ['Structure', 'Finishing']
       }
+    };
+  }
+
+  async checkServiceArea(parameters, context) {
+    const city = parameters.location || 'your area';
+    // Logic: Meezan works in all major cities.
+    // We can simulate a check.
+    const isMajorCity = ['karachi', 'lahore', 'islamabad', 'rawalpindi', 'multan', 'faisalabad', 'peshawar', 'quetta', 'sialkot', 'gujranwala'].some(c => city.toLowerCase().includes(c));
+
+    return {
+      success: true,
+      service_available: true, // We say true for all for now, or true for major cities
+      message: isMajorCity
+        ? `Yes, we have active teams in ${city}.`
+        : `We can certainly arrange a project consultation for ${city}, as we serve clients nationwide.`
     };
   }
 
@@ -2518,7 +2536,8 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 // Helper functions
 function isGreeting(message) {
   const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'salam', 'greetings'];
-  return greetings.some(greeting => message.includes(greeting));
+  const greetingRegex = new RegExp(`\\b(${greetings.join('|')})\\b`, 'i');
+  return greetingRegex.test(message);
 }
 
 function isAboutQuery(message) {
@@ -2938,11 +2957,12 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
         - MARKET_RESEARCH: For questions about trends, prices, or "is this a good time to build?".
         - COST_CALCULATOR: For specific cost estimates ("how much for 5 marla?").
         - WEATHER_CHECK: For timeline/weather questions.
+        - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
         - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
 
         User Request: "${message}"
 
-        Return ONLY a JSON object: { "action": "TOOL_NAME_OR_DIRECT_RESPONSE", "reason": "Why?", "toolParams": { ... } }`
+        Return ONLY a JSON object: { "action": "TOOL_NAME_OR_DIRECT_RESPONSE", "reason": "Why?", "toolParams": { "location": "City Name" } }`
       }]
     }]
   };

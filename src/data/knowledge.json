@@ -14,61 +14,84 @@
       "Renovation & Remodeling",
       "Project Management"
     ],
-    "coreValues": ["Quality", "Reliability", "Innovation", "Customer Satisfaction"],
+    "coreValues": ["Quality", "Reliability", "Innovation", "Customer Satisfaction", "Integrity", "Excellence"],
     "contact": {
       "phone": "+92-321-883-6371",
       "whatsapp": "+92-311-178-6646",
       "email": "meezandevelopers.official@gmail.com",
       "secondaryEmail": "info@meezandevelopers.com",
       "address": "97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore",
-      "businessHours": "Monday - Saturday: 8:00 AM - 8:00 PM, Friday: 12:00 PM - 2:00 PM (Jumma Break)"
+      "businessHours": "Monday - Saturday: 8:00 AM - 8:00 PM, Friday: 12:00 PM - 2:00 PM (Jumma Break)",
+      "emergencyContact": "+92-321-883-6371"
     },
     "stats": {
       "projectsCompleted": "263+",
       "teamMembers": "43+",
-      "industryAwards": "5+"
+      "industryAwards": "5+",
+      "clientSatisfaction": "98%",
+      "onTimeDelivery": "96%"
     }
   },
   "services": [
     {
       "name": "Residential Construction",
-      "description": "Custom home building, luxury villas, apartment complexes, and modern housing projects designed for comfort and elegance."
+      "description": "Custom home building, luxury villas, apartment complexes, and modern housing projects designed for comfort and elegance.",
+      "averageTimeline": "6-18 months",
+      "keyFeatures": ["Custom Design", "Quality Materials", "Energy Efficient", "Modern Amenities"]
     },
     {
       "name": "Commercial Construction", 
-      "description": "Office towers, shopping malls, commercial plazas, and business centers built for business excellence."
+      "description": "Office towers, shopping malls, commercial plazas, and business centers built for business excellence.",
+      "averageTimeline": "12-24 months",
+      "keyFeatures": ["Commercial Grade", "Smart Building Tech", "High Footfall Design", "Brand Integration"]
     },
     {
       "name": "Industrial Construction",
-      "description": "Warehouses, factories, manufacturing plants, and industrial facilities with advanced infrastructure."
+      "description": "Warehouses, factories, manufacturing plants, and industrial facilities with advanced infrastructure.",
+      "averageTimeline": "9-18 months",
+      "keyFeatures": ["Heavy Duty Construction", "Logistics Optimization", "Safety Compliance", "Scalable Design"]
     },
     {
       "name": "Religious Buildings",
-      "description": "Beautiful mosques, churches, temples, and religious centers with traditional and modern architecture."
+      "description": "Beautiful mosques, churches, temples, and religious centers with traditional and modern architecture.",
+      "averageTimeline": "8-14 months",
+      "keyFeatures": ["Sacred Architecture", "Community Focus", "Traditional Craftsmanship", "Modern Facilities"]
     },
     {
       "name": "Roads & Infrastructure",
-      "description": "Highways, bridges, road networks, and public infrastructure developments across Pakistan."
+      "description": "Highways, bridges, road networks, and public infrastructure developments across Pakistan.",
+      "averageTimeline": "12-36 months",
+      "keyFeatures": ["Durable Materials", "Traffic Engineering", "Environmental Compliance", "Long-term Planning"]
     },
     {
       "name": "Educational Facilities",
-      "description": "Schools, colleges, university buildings, libraries, and educational complexes for the future of education."
+      "description": "Schools, colleges, university buildings, libraries, and educational complexes for the future of education.",
+      "averageTimeline": "10-20 months",
+      "keyFeatures": ["Learning Environment Design", "Safety First", "Technology Integration", "Future Expansion"]
     },
     {
       "name": "Healthcare Facilities",
-      "description": "Hospitals, clinics, medical centers, and healthcare institutions for community wellness."
+      "description": "Hospitals, clinics, medical centers, and healthcare institutions for community wellness.",
+      "averageTimeline": "14-30 months",
+      "keyFeatures": ["Medical Compliance", "Hygiene Standards", "Patient Flow Design", "Emergency Ready"]
     },
     {
       "name": "Sports & Recreational",
-      "description": "Stadiums, sports complexes, recreational centers, and athletic facilities for active lifestyles."
+      "description": "Stadiums, sports complexes, recreational centers, and athletic facilities for active lifestyles.",
+      "averageTimeline": "12-24 months",
+      "keyFeatures": ["Professional Standards", "Audience Comfort", "Athlete Facilities", "Multi-purpose Design"]
     },
     {
       "name": "Renovation & Remodeling",
-      "description": "Complete renovations, kitchen/bathroom remodels, space optimization, and interior upgrades."
+      "description": "Complete renovations, kitchen/bathroom remodels, space optimization, and interior upgrades.",
+      "averageTimeline": "1-6 months",
+      "keyFeatures": ["Minimal Disruption", "Quality Upgrades", "Space Optimization", "Modern Aesthetics"]
     },
     {
       "name": "Project Management",
-      "description": "End-to-end project oversight, budget management, timeline coordination, and quality control."
+      "description": "End-to-end project oversight, budget management, timeline coordination, and quality control.",
+      "averageTimeline": "Project Specific",
+      "keyFeatures": ["Full Coordination", "Budget Control", "Timeline Management", "Quality Assurance"]
     }
   ],
   "team": {
@@ -76,58 +99,91 @@
       {
         "name": "Engr. Maqbool Ahmed Khan",
         "role": "STRUCTURE ENGINEER",
-        "expertise": ["Structural Analysis", "Foundation Design", "Building Safety"]
+        "expertise": ["Structural Analysis", "Foundation Design", "Building Safety"],
+        "experience": "20+ years",
+        "qualification": "MSc Structural Engineering"
       },
       {
         "name": "Ar. Maria Nafees", 
         "role": "HEAD ARCHITECTURE",
-        "expertise": ["Concept Design", "Sustainable Architecture", "Creative Vision"]
+        "expertise": ["Concept Design", "Sustainable Architecture", "Creative Vision"],
+        "experience": "15+ years",
+        "qualification": "B.Arch, M.Arch"
       },
       {
         "name": "Mufti Raees Ahmed",
         "role": "DIRECTOR MARKETING", 
-        "expertise": ["Brand Management", "Digital Marketing", "Public Relations"]
+        "expertise": ["Brand Management", "Digital Marketing", "Public Relations"],
+        "experience": "12+ years",
+        "qualification": "MBA Marketing"
       },
       {
         "name": "Engr. Saleem Ahmed",
         "role": "ARCHITECTURE",
-        "expertise": ["Technical Drawing", "Design Implementation", "Creative Problem-Solving"]
+        "expertise": ["Technical Drawing", "Design Implementation", "Creative Problem-Solving"],
+        "experience": "10+ years",
+        "qualification": "B.Arch"
       },
       {
         "name": "Engr. Ehsan Ur Rehman", 
         "role": "RESIDENT ENGINEER",
-        "expertise": ["Site Supervision", "Quality Control", "Project Execution"]
+        "expertise": ["Site Supervision", "Quality Control", "Project Execution"],
+        "experience": "18+ years",
+        "qualification": "BSc Civil Engineering"
       },
       {
         "name": "Tahir Abbas",
         "role": "PROCUREMENT MANAGER",
-        "expertise": ["Vendor Management", "Supply Chain", "Cost Optimization"]
+        "expertise": ["Vendor Management", "Supply Chain", "Cost Optimization"],
+        "experience": "14+ years",
+        "qualification": "MBA Supply Chain"
       }
-    ]
+    ],
+    "departments": {
+      "design": "8 professionals",
+      "engineering": "12 professionals",
+      "construction": "15 professionals",
+      "projectManagement": "5 professionals",
+      "qualityControl": "3 professionals"
+    }
   },
   "constructionCosts": {
     "residential": {
       "greyStructure": "PKR 2,750 - 3,300 per sq. ft.",
       "finished": "PKR 4,600 - 5,500 per sq. ft.", 
-      "premium": "PKR 6,500 - 7,500+ per sq. ft."
+      "premium": "PKR 6,500 - 7,500+ per sq. ft.",
+      "luxury": "PKR 8,000 - 12,000+ per sq. ft."
     },
     "commercial": {
       "basic": "PKR 3,500 - 4,500 per sq. ft.",
       "standard": "PKR 4,500 - 6,000 per sq. ft.",
-      "premium": "PKR 6,000 - 8,000+ per sq. ft."
+      "premium": "PKR 6,000 - 8,000+ per sq. ft.",
+      "highEnd": "PKR 8,000 - 15,000+ per sq. ft."
     },
     "industrial": {
       "basic": "PKR 2,800 - 3,500 per sq. ft.",
       "standard": "PKR 3,500 - 4,800 per sq. ft.", 
-      "premium": "PKR 4,800 - 6,000+ per sq. ft."
+      "premium": "PKR 4,800 - 6,000+ per sq. ft.",
+      "specialized": "PKR 6,000 - 10,000+ per sq. ft."
     },
-    "costFactors": ["Location", "Material Quality", "Design Complexity", "Project Size", "Timeline"]
+    "costFactors": ["Location", "Material Quality", "Design Complexity", "Project Size", "Timeline", "Site Conditions", "Regulatory Requirements"],
+    "paymentTerms": {
+      "residential": ["10% Advance", "40% During Construction", "40% Upon Completion", "10% After Final Inspection"],
+      "commercial": ["15% Advance", "40% Foundation", "30% Superstructure", "15% Finishing"],
+      "custom": "Negotiable based on project scope"
+    }
   },
   "companyInfo": {
     "mission": "To pioneer the future of urban living in Pakistan by developing superior, sustainable, and intelligent properties.",
     "vision": "To be the most trusted and transformative real estate developer in Pakistan, setting the benchmark for quality and innovation.",
     "history": "Established in 2009, Meezan Developers has built a legacy defined by relentless pursuit of construction excellence, evolving from specialized contractor to multifaceted industry leader.",
-    "meaning": "Meezan derived from Arabic for 'BALANCE' & 'SCALES' epitomizes our foundational principle: meticulous equilibrium of aesthetic vision, structural integrity, and client value."
+    "meaning": "Meezan derived from Arabic for 'BALANCE' & 'SCALES' epitomizes our foundational principle: meticulous equilibrium of aesthetic vision, structural integrity, and client value.",
+    "achievements": [
+      "263+ Successful Projects",
+      "5 Industry Awards",
+      "98% Client Satisfaction",
+      "96% On-Time Delivery"
+    ]
   },
   "faqs": [
     {
@@ -153,6 +209,18 @@
     {
       "question": "Can you work with existing architectural plans?",
       "answer": "Yes, we can work with your existing plans or develop new designs based on your requirements and vision."
+    },
+    {
+      "question": "Do you offer financing options?",
+      "answer": "We work with reputable financial institutions to provide construction financing options for qualified clients."
+    },
+    {
+      "question": "What is your warranty policy?",
+      "answer": "We offer a comprehensive 10-year structural warranty and 2-year workmanship warranty on all our projects."
+    },
+    {
+      "question": "How do you handle project changes?",
+      "answer": "We maintain transparent change order processes with client approval before implementation to ensure project alignment."
     }
   ],
   "projectPortfolio": {
@@ -163,6 +231,34 @@
     "infrastructure": "7 Projects",
     "educational": "6 Projects",
     "roads": "6 Projects",
-    "totalCompleted": "263+ Projects"
-  }
+    "totalCompleted": "263+ Projects",
+    "currentProjects": "12 Active Projects",
+    "upcomingProjects": "8 Planned Projects"
+  },
+  "process": {
+    "step1": "Initial Consultation & Requirement Gathering",
+    "step2": "Design & Planning Development",
+    "step3": "Cost Estimation & Budget Finalization",
+    "step4": "Approval & Permits Acquisition",
+    "step5": "Construction Execution",
+    "step6": "Quality Control & Inspection",
+    "step7": "Final Handover & Aftercare"
+  },
+  "testimonials": [
+    {
+      "name": "Ahmed Raza",
+      "project": "Residential Villa",
+      "feedback": "Meezan Developers delivered our dream home on time and within budget. Their attention to detail was exceptional."
+    },
+    {
+      "name": "Sara Khan",
+      "project": "Commercial Plaza",
+      "feedback": "Professional team, transparent process, and outstanding results. Highly recommended for commercial projects."
+    },
+    {
+      "name": "Imran Shah",
+      "project": "Factory Construction",
+      "feedback": "Their industrial construction expertise saved us time and money. The facility exceeded our expectations."
+    }
+  ]
 }

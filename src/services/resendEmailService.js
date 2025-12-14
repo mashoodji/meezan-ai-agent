@@ -4,7 +4,7 @@ class ResendEmailService {
   constructor() {
     this.resend = null;
     this.initialized = false;
-    this.verifiedDomain = 'meezandevelopers.com'; // Your verified domain
+    this.verifiedDomain = 'meezandevelopers.com';
     this.initializeResend();
   }
 
@@ -45,13 +45,12 @@ class ResendEmailService {
       console.log('   Client Email:', meetingData.email);
       console.log('   Company Email:', companyEmail);
 
-      // ✅ CRITICAL CHANGE: Use your verified domain instead of onboarding@resend.dev
       const fromAddressClient = `Meezan Developers <noreply@${this.verifiedDomain}>`;
       const fromAddressCompany = `Meezan AI Agent <ai@${this.verifiedDomain}>`;
 
       // Email to Client
       const clientEmail = {
-        from: fromAddressClient, // ✅ Now using your domain
+        from: fromAddressClient,
         to: [meetingData.email],
         subject: `Meeting Confirmed - ${meetingData.name} - Meezan Developers`,
         html: this.getClientEmailTemplate(meetingData),
@@ -61,7 +60,7 @@ class ResendEmailService {
 
       // Email to Company
       const companyEmailData = {
-        from: fromAddressCompany, // ✅ Now using your domain
+        from: fromAddressCompany,
         to: [companyEmail],
         subject: `New Meeting Scheduled - ${meetingData.name} - ${meetingData.projectType}`,
         html: this.getCompanyEmailTemplate(meetingData),
@@ -127,49 +126,7 @@ class ResendEmailService {
     }
   }
 
-  // Test domain functionality
-  async testDomainFunctionality() {
-    try {
-      console.log('🔍 Testing domain email functionality...');
-      
-      const testEmail = {
-        from: `Test <test@${this.verifiedDomain}>`,
-        to: [process.env.COMPANY_EMAIL || 'mashoodji7@gmail.com'],
-        subject: `Domain Test - ${this.verifiedDomain}`,
-        html: `
-          <h2>Domain Email Test</h2>
-          <p>Testing email sending from your verified domain: <strong>${this.verifiedDomain}</strong></p>
-          <p>If you receive this, your domain is properly configured and can send to any email address!</p>
-          <p><strong>Status:</strong> ✅ DOMAIN VERIFIED AND ACTIVE</p>
-        `,
-        text: `Domain test for ${this.verifiedDomain} - Emails should now work to any address`
-      };
-
-      const result = await this.resend.emails.send(testEmail);
-      
-      if (result.error) {
-        console.log('❌ Domain test failed:', result.error.message);
-        return { 
-          success: false, 
-          error: result.error.message
-        };
-      } else {
-        console.log('✅ Domain test PASSED!');
-        console.log('   Domain:', this.verifiedDomain, 'can send to any address');
-        return { 
-          success: true, 
-          messageId: result.data?.id,
-          domain: this.verifiedDomain,
-          status: 'VERIFIED_AND_ACTIVE'
-        };
-      }
-    } catch (error) {
-      console.error('❌ Domain test error:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Keep your existing template methods (they're perfect!)
+  // Enhanced email templates
   getClientEmailTemplate(meeting) {
     return `
       <!DOCTYPE html>
@@ -218,6 +175,15 @@ class ResendEmailService {
           h1 { margin: 0; font-size: 28px; }
           h3 { color: #1a365d; margin-top: 0; }
           .highlight { color: #1a365d; font-weight: bold; }
+          .button {
+            display: inline-block;
+            background: #1a365d;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+          }
         </style>
       </head>
       <body>
@@ -238,22 +204,38 @@ class ResendEmailService {
               <p><strong>Duration:</strong> 60 minutes</p>
               <p><strong>Project Type:</strong> ${meeting.projectType || 'General Discussion'}</p>
               <p><strong>Meeting ID:</strong> ${meeting.id}</p>
+              <p><strong>Mode:</strong> Office Consultation</p>
             </div>
 
-            <h3>📍 Our Office</h3>
+            <h3>📍 Our Office Location</h3>
             <p>97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore</p>
+            
+            <p><a href="https://maps.google.com/?q=97-B Main Boulevard Jubilee Town Lahore" class="button">📍 Get Directions</a></p>
 
             <h3>📞 Contact Information</h3>
             <p><strong>Phone:</strong> +92-321-883-6371</p>
             <p><strong>WhatsApp:</strong> +92-311-178-6646</p>
             <p><strong>Email:</strong> meezandevelopers.official@gmail.com</p>
+            <p><strong>Emergency Contact:</strong> +92-321-883-6371</p>
 
-            <p><em>We recommend arriving 5 minutes early. Please bring any project plans or documents you'd like to discuss.</em></p>
+            <h3>📋 Preparation Checklist</h3>
+            <ul>
+              <li>Bring any existing plans or drawings</li>
+              <li>Prepare your budget range</li>
+              <li>List your specific requirements</li>
+              <li>Think about your preferred timeline</li>
+            </ul>
+
+            <p><em>We recommend arriving 5 minutes early. Parking is available at our office premises.</em></p>
+            
+            <p>Need to reschedule? Contact us at least 24 hours before your appointment.</p>
           </div>
           
           <div class="footer">
             <p><strong>Meezan Developers</strong><br>Building Excellence Since 2009</p>
+            <p>263+ Projects Completed | 98% Client Satisfaction</p>
             <p>97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore</p>
+            <p><a href="https://meezandevelopers.com">Visit our website</a> | <a href="https://meezandevelopers.com/portfolio">View our portfolio</a></p>
           </div>
         </div>
       </body>
@@ -299,8 +281,24 @@ class ResendEmailService {
             margin: 20px 0; 
             border-left: 4px solid #dc2626; 
           }
+          .urgent { 
+            background: #fef3c7; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border-left: 4px solid #f59e0b;
+            margin: 15px 0;
+          }
           h1 { margin: 0; font-size: 24px; }
           h3 { color: #dc2626; margin-top: 0; }
+          .button {
+            display: inline-block;
+            background: #dc2626;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+          }
         </style>
       </head>
       <body>
@@ -311,20 +309,46 @@ class ResendEmailService {
           </div>
           
           <div class="content">
+            <div class="urgent">
+              <h3>📋 ACTION REQUIRED</h3>
+              <p>New client consultation scheduled via AI Agent. Please prepare for this meeting.</p>
+            </div>
+            
             <h3>👤 Client Details</h3>
             <div class="meeting-details">
               <p><strong>Name:</strong> ${meeting.name}</p>
               <p><strong>Email:</strong> ${meeting.email}</p>
+              <p><strong>Project Type:</strong> ${meeting.projectType || 'Not specified'}</p>
               <p><strong>Date:</strong> ${meeting.date}</p>
               <p><strong>Time:</strong> ${meeting.time}</p>
-              <p><strong>Project Type:</strong> ${meeting.projectType || 'Not specified'}</p>
               <p><strong>Meeting ID:</strong> ${meeting.id}</p>
+              <p><strong>Scheduled Via:</strong> AI Agent System</p>
+              <p><strong>Timestamp:</strong> ${new Date().toLocaleString('en-PK')}</p>
             </div>
             
-            <p><strong>Scheduled Via:</strong> AI Agent System</p>
-            <p><strong>Timestamp:</strong> ${new Date().toLocaleString('en-PK')}</p>
+            <h3>📧 Quick Actions</h3>
+            <p>
+              <a href="mailto:${meeting.email}?subject=Preparation for our meeting on ${meeting.date}&body=Dear ${meeting.name},%0D%0A%0D%0AWe're looking forward to our meeting on ${meeting.date} at ${meeting.time} to discuss your ${meeting.projectType} project.%0D%0A%0D%0ABest regards,%0D%0AMeezan Developers Team" class="button">📧 Send Welcome Email</a>
+              <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Meeting with ${meeting.name} - ${meeting.projectType}&dates=${this.getGoogleCalendarDate(meeting.date, meeting.time)}&details=Client: ${meeting.name}%0AEmail: ${meeting.email}%0AProject: ${meeting.projectType}%0AMeeting ID: ${meeting.id}&location=97-B Main Boulevard Jubilee Town Lahore" class="button">📅 Add to Google Calendar</a>
+            </p>
             
-            <p style="color: #666; font-style: italic;">This meeting was automatically scheduled through the AI Agent.</p>
+            <h3>📋 Preparation Notes</h3>
+            <ul>
+              <li>Review ${meeting.projectType} portfolio materials</li>
+              <li>Prepare cost estimation templates</li>
+              <li>Check availability of relevant team members</li>
+              <li>Prepare consultation checklist</li>
+            </ul>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>Send preparation email to client</li>
+              <li>Add to team calendar</li>
+              <li>Prepare project discussion materials</li>
+              <li>Confirm meeting room availability</li>
+            </ol>
+            
+            <p style="color: #666; font-style: italic;">This meeting was automatically scheduled through the AI Agent system. All details are confirmed and the client has received confirmation.</p>
           </div>
         </div>
       </body>
@@ -342,10 +366,11 @@ Your meeting with Meezan Developers has been scheduled successfully!
 
 MEETING DETAILS:
 • Date: ${meeting.date}
-• Time: ${meeting.time} 
+• Time: ${meeting.time}
 • Duration: 60 minutes
 • Project: ${meeting.projectType || 'General Discussion'}
 • Meeting ID: ${meeting.id}
+• Mode: Office Consultation
 
 OUR OFFICE:
 97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore
@@ -354,12 +379,92 @@ CONTACT INFORMATION:
 • Phone: +92-321-883-6371
 • WhatsApp: +92-311-178-6646
 • Email: meezandevelopers.official@gmail.com
+• Emergency Contact: +92-321-883-6371
 
-We recommend arriving 5 minutes early. Please bring any project plans or documents.
+PREPARATION CHECKLIST:
+✓ Bring any existing plans or drawings
+✓ Prepare your budget range
+✓ List your specific requirements
+✓ Think about your preferred timeline
+
+We recommend arriving 5 minutes early. Parking is available at our office premises.
+
+Need to reschedule? Contact us at least 24 hours before your appointment.
 
 Meezan Developers
 Building Excellence Since 2009
+263+ Projects Completed | 98% Client Satisfaction
     `;
+  }
+
+  // Helper method for Google Calendar
+  getGoogleCalendarDate(dateStr, timeStr) {
+    // Convert date and time to Google Calendar format
+    const date = new Date(dateStr);
+    const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = parseInt(timeMatch[2]);
+      const period = timeMatch[3].toUpperCase();
+      
+      if (period === 'PM' && hours < 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      
+      date.setHours(hours, minutes);
+    }
+    
+    // Add 1 hour for end time
+    const endDate = new Date(date.getTime() + 60 * 60 * 1000);
+    
+    // Format to YYYYMMDDTHHMMSSZ
+    const formatDate = (d) => {
+      return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+    
+    return `${formatDate(date)}/${formatDate(endDate)}`;
+  }
+
+  // Test domain functionality
+  async testDomainFunctionality() {
+    try {
+      console.log('🔍 Testing domain email functionality...');
+      
+      const testEmail = {
+        from: `Test <test@${this.verifiedDomain}>`,
+        to: [process.env.COMPANY_EMAIL || 'mashoodji7@gmail.com'],
+        subject: `Domain Test - ${this.verifiedDomain}`,
+        html: `
+          <h2>Domain Email Test</h2>
+          <p>Testing email sending from your verified domain: <strong>${this.verifiedDomain}</strong></p>
+          <p>If you receive this, your domain is properly configured and can send to any email address!</p>
+          <p><strong>Status:</strong> ✅ DOMAIN VERIFIED AND ACTIVE</p>
+        `,
+        text: `Domain test for ${this.verifiedDomain} - Emails should now work to any address`
+      };
+
+      const result = await this.resend.emails.send(testEmail);
+      
+      if (result.error) {
+        console.log('❌ Domain test failed:', result.error.message);
+        return { 
+          success: false, 
+          error: result.error.message
+        };
+      } else {
+        console.log('✅ Domain test PASSED!');
+        console.log('   Domain:', this.verifiedDomain, 'can send to any address');
+        return { 
+          success: true, 
+          messageId: result.data?.id,
+          domain: this.verifiedDomain,
+          status: 'VERIFIED_AND_ACTIVE'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Domain test error:', error.message);
+      return { success: false, error: error.message };
+    }
   }
 }
 

@@ -1439,25 +1439,25 @@ router.post('/chat', async (req, res) => {
     // Check for website redirection - DISABLED TO ALLOW AGENT REASONING
     // const redirectInfo = handleWebsiteRedirect(userMessage);
     // if (redirectInfo) {
-    console.log('🤖 AI Agent redirecting to:', redirectInfo.page, redirectInfo.url);
+    // console.log('🤖 AI Agent redirecting to:', redirectInfo.page, redirectInfo.url);
 
-    const response = formatResponse(
-      redirectInfo.message,
-      ["Continue Chat", "Schedule Consultation", "Cost Estimation"],
-      redirectInfo.action,
-      {
-        redirectUrl: redirectInfo.url,
-        page: redirectInfo.page
-      },
-      sessionId
-    );
+    // const response = formatResponse(
+    //   redirectInfo.message,
+    //   ["Continue Chat", "Schedule Consultation", "Cost Estimation"],
+    //   redirectInfo.action,
+    //   {
+    //     redirectUrl: redirectInfo.url,
+    //     page: redirectInfo.page
+    //   },
+    //   sessionId
+    // );
 
-    improvementSystem.trackSuccess(sessionId, {
-      type: 'website_redirect',
-      response: response.reply
-    }, 'redirect_success');
+    // improvementSystem.trackSuccess(sessionId, {
+    //   type: 'website_redirect',
+    //   response: response.reply
+    // }, 'redirect_success');
 
-    logConversation(sessionId, message, response, context);
+    // logConversation(sessionId, message, response, context);
     //   return res.json(response);
     // }
 

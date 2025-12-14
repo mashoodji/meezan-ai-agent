@@ -7,10 +7,23 @@ const knowledge = require('../data/knowledge.json');
 const resendEmailService = require('../services/resendEmailService');
 const calendarService = require('../services/calendarService');
 
+// ==================== NEW IMPORTS ====================
+const { v4: uuidv4 } = require('uuid/dist/v4');
+const fs = require('fs').promises;
+const path = require('path');
+// =====================================================
+
 // Store conversation contexts in memory
 const conversationContexts = new Map();
 const meetingStates = new Map();
 const requestCounts = new Map();
+
+// ==================== NEW DATA STORES ====================
+const clientPreferences = new Map(); // Store client preferences
+const learningMemory = new Map(); // Store learning from interactions
+const goalStates = new Map(); // Store active goals per session
+const decisionMetrics = new Map(); // Store decision-making metrics
+// =========================================================
 
 // Rate limiting configuration
 const RATE_LIMIT = {
@@ -26,7 +39,13 @@ const conversationStates = {
   MEETING_BOOKING: 'meeting_booking',
   PROJECT_DETAILS: 'project_details',
   PORTFOLIO_REVIEW: 'portfolio_review',
-  COST_TYPE_SELECTION: 'cost_type_selection'
+  COST_TYPE_SELECTION: 'cost_type_selection',
+  // ==================== NEW STATES ====================
+  GOAL_PURSUIT: 'goal_pursuit',
+  RESEARCH_IN_PROGRESS: 'research_in_progress',
+  MULTI_STEP_PLANNING: 'multi_step_planning',
+  OPTIMIZATION_MODE: 'optimization_mode'
+  // ====================================================
 };
 
 // Website URLs for redirection
@@ -39,12 +58,28 @@ const WEBSITE_URLS = {
   CONTACT: 'https://meezandevelopers.com/contact'
 };
 
+// ==================== NEW API INTEGRATIONS ====================
+const EXTERNAL_APIS = {
+  MARKET_DATA: process.env.MARKET_DATA_API_URL,
+  RESEARCH_TOOL: process.env.RESEARCH_TOOL_API_URL,
+  CONSTRUCTION_NEWS: process.env.CONSTRUCTION_NEWS_API_URL,
+  WEATHER_API: process.env.WEATHER_API_URL,
+  MATERIAL_PRICES: process.env.MATERIAL_PRICES_API_URL
+};
+// =============================================================
+
 // AI Agent Personality Configuration
 const AGENT_PERSONALITY = {
   name: "Meezan AI Consultant",
   tone: "professional yet friendly",
   expertise: "construction and project planning",
-  traits: ["helpful", "knowledgeable", "efficient", "personable"]
+  traits: ["helpful", "knowledgeable", "efficient", "personable"],
+  // ==================== NEW TRAITS ====================
+  autonomyLevel: "high",
+  learningCapability: "adaptive",
+  initiativeTaking: "proactive",
+  optimizationFocus: "continuous"
+  // ====================================================
 };
 
 // AI Agent Response Styles
@@ -73,7 +108,24 @@ const RESPONSE_STYLES = {
     "Excellent choice! Now, what time on {date} works best for your {projectType} consultation?",
     "Great! I have several time slots available on {date} for your {projectType} project. Which time suits you?",
     "Perfect! Let's pick a time on {date} for your {projectType} discussion. What works for your schedule?"
+  ],
+  // ==================== NEW RESPONSE STYLES ====================
+  proactive_suggestion: [
+    "Based on your interest in {topic}, I thought you might find this helpful: {suggestion}",
+    "I've been analyzing your project needs and wanted to proactively suggest: {suggestion}",
+    "While we're discussing this, I should mention that many clients find this valuable: {suggestion}"
+  ],
+  goal_achievement: [
+    "Great progress! We're making headway on your goal of {goal}. Next, let's focus on {nextStep}",
+    "Excellent! That brings us closer to completing {goal}. What would you like to tackle next?",
+    "Perfect! I've updated our plan. We're now {progress}% toward achieving {goal}"
+  ],
+  learning_insight: [
+    "Based on our previous conversations about {topic}, I've learned that {insight}",
+    "I remember you mentioned {preference}. That helps me provide better recommendations for {currentTopic}",
+    "From our last discussion, I noticed you were interested in {pattern}. Here's something relevant..."
   ]
+  // ============================================================
 };
 
 // Enhanced system prompt for AI Agent with personality
@@ -85,6 +137,13 @@ PERSONALITY TRAITS:
 - Proactive in offering solutions
 - Maintains natural conversation flow
 - Shows genuine interest in client projects
+
+AUTONOMOUS CAPABILITIES:
+- Set and pursue goals autonomously
+- Learn from each interaction to improve future responses
+- Take initiative based on client needs and conversation patterns
+- Make strategic decisions about when to research or seek additional information
+- Continuously optimize conversation strategies based on outcomes
 
 COMPANY EXPERTISE:
 - ${knowledge.company.yearsExperience} years in construction industry
@@ -101,6 +160,10 @@ RESPONSE GUIDELINES:
 - Be concise but warm and engaging
 - Use construction industry terminology appropriately
 - Offer proactive suggestions based on project type
+- Set goals based on client needs and pursue them autonomously
+- Remember client preferences and adapt to their patterns
+- Take initiative when opportunities arise
+- Optimize responses based on what works best
 
 IMPORTANT: When discussing meetings, make it feel like you're personally arranging the consultation with our team, not just processing a form.`;
 
@@ -119,8 +182,1000 @@ RESPONSE STYLE:
 - Explain factors that affect pricing
 - Offer guidance on budget planning
 - Be transparent about cost variables
+- Use real-time market data when available
 
 Always position yourself as Meezan Developers' construction expert, not just an AI.`;
+
+// ==================== NEW DECISION MAKING ENGINE ====================
+class DecisionMakingEngine {
+  constructor() {
+    this.decisionLog = new Map();
+    this.strategyMetrics = new Map();
+    this.initiativeThreshold = 0.7; // When to take initiative (0-1)
+  }
+
+  evaluateInitiative(context) {
+    const factors = {
+      clientEngagement: context.interactionCount > 3 ? 0.8 : 0.3,
+      projectComplexity: context.projectDetails.type ? 0.7 : 0.2,
+      conversationDepth: context.conversationHistory.length > 5 ? 0.6 : 0.3,
+      timeSinceLastInitiative: this.getTimeSinceLastInitiative(context.sessionId)
+    };
+
+    const initiativeScore = (
+      factors.clientEngagement * 0.4 +
+      factors.projectComplexity * 0.3 +
+      factors.conversationDepth * 0.2 +
+      factors.timeSinceLastInitiative * 0.1
+    );
+
+    return initiativeScore > this.initiativeThreshold;
+  }
+
+  getTimeSinceLastInitiative(sessionId) {
+    const lastInitiative = this.decisionLog.get(sessionId)?.lastInitiative;
+    if (!lastInitiative) return 1.0;
+    
+    const hoursSince = (Date.now() - new Date(lastInitiative).getTime()) / (1000 * 60 * 60);
+    return Math.min(hoursSince / 24, 1.0); // Normalize to 0-1
+  }
+
+  chooseStrategy(context) {
+    const strategies = {
+      PROACTIVE_SUGGESTION: {
+        weight: 0.3,
+        conditions: ['high_engagement', 'clear_project_type']
+      },
+      DETAILED_RESEARCH: {
+        weight: 0.4,
+        conditions: ['complex_project', 'cost_inquiry']
+      },
+      MULTI_STEP_PLAN: {
+        weight: 0.5,
+        conditions: ['established_trust', 'ongoing_discussion']
+      },
+      DIRECT_ASSISTANCE: {
+        weight: 0.2,
+        conditions: ['first_interaction', 'simple_query']
+      }
+    };
+
+    // Calculate strategy scores based on context
+    const strategyScores = {};
+    for (const [strategyName, strategy] of Object.entries(strategies)) {
+      let score = strategy.weight;
+      
+      // Adjust based on conditions
+      if (context.interactionCount > 5) score *= 1.2;
+      if (context.projectDetails.type) score *= 1.3;
+      if (context.clientName) score *= 1.1;
+      
+      strategyScores[strategyName] = score;
+    }
+
+    // Select best strategy
+    return Object.entries(strategyScores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+  }
+
+  logDecision(sessionId, decision, outcome = null) {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      decision,
+      outcome,
+      context: {
+        interactionCount: conversationContexts.get(sessionId)?.interactionCount || 0,
+        state: conversationContexts.get(sessionId)?.state || 'unknown'
+      }
+    };
+
+    if (!this.decisionLog.has(sessionId)) {
+      this.decisionLog.set(sessionId, { decisions: [] });
+    }
+    
+    const sessionLog = this.decisionLog.get(sessionId);
+    sessionLog.decisions.push(logEntry);
+    
+    // Keep only last 10 decisions
+    if (sessionLog.decisions.length > 10) {
+      sessionLog.decisions = sessionLog.decisions.slice(-10);
+    }
+    
+    // Update last initiative if applicable
+    if (decision.type === 'initiative') {
+      sessionLog.lastInitiative = new Date().toISOString();
+    }
+    
+    return logEntry;
+  }
+}
+
+const decisionEngine = new DecisionMakingEngine();
+// ===============================================================
+
+// ==================== NEW PERSISTENT LEARNING SYSTEM ====================
+class PersistentLearningSystem {
+  constructor() {
+    this.memoryPath = path.join(__dirname, '../data/learning_memory.json');
+    this.preferencesPath = path.join(__dirname, '../data/client_preferences.json');
+    this.successMetricsPath = path.join(__dirname, '../data/success_metrics.json');
+    this.loadMemory();
+  }
+
+  async loadMemory() {
+    try {
+      // Load learning memory
+      const memoryData = await fs.readFile(this.memoryPath, 'utf8');
+      const loadedMemory = JSON.parse(memoryData);
+      loadedMemory.forEach(item => learningMemory.set(item.sessionId, item));
+      
+      // Load client preferences
+      const prefData = await fs.readFile(this.preferencesPath, 'utf8');
+      const loadedPrefs = JSON.parse(prefData);
+      loadedPrefs.forEach(pref => clientPreferences.set(pref.clientId, pref));
+      
+      console.log('🤖 AI Learning Memory Loaded:', learningMemory.size, 'items');
+      console.log('🤖 Client Preferences Loaded:', clientPreferences.size, 'clients');
+    } catch (error) {
+      console.log('🤖 Starting with fresh learning memory');
+      // Initialize empty files
+      await this.saveMemory();
+    }
+  }
+
+  async saveMemory() {
+    try {
+      const memoryArray = Array.from(learningMemory.entries()).map(([key, value]) => ({ 
+        sessionId: key, 
+        ...value 
+      }));
+      await fs.writeFile(this.memoryPath, JSON.stringify(memoryArray, null, 2));
+      
+      const prefArray = Array.from(clientPreferences.entries()).map(([key, value]) => ({ 
+        clientId: key, 
+        ...value 
+      }));
+      await fs.writeFile(this.preferencesPath, JSON.stringify(prefArray, null, 2));
+      
+      console.log('🤖 AI Memory Saved Successfully');
+    } catch (error) {
+      console.error('❌ Failed to save AI memory:', error);
+    }
+  }
+
+  learnFromInteraction(sessionId, userMessage, response, context) {
+    const learningEntry = {
+      timestamp: new Date().toISOString(),
+      userMessage,
+      response,
+      context: {
+        state: context.state,
+        lastTopic: context.lastTopic,
+        clientName: context.clientName
+      },
+      effectiveness: this.calculateEffectiveness(userMessage, response),
+      patterns: this.extractPatterns(userMessage, context)
+    };
+
+    if (!learningMemory.has(sessionId)) {
+      learningMemory.set(sessionId, { interactions: [] });
+    }
+    
+    const sessionMemory = learningMemory.get(sessionId);
+    sessionMemory.interactions.push(learningEntry);
+    
+    // Keep only last 50 interactions per session
+    if (sessionMemory.interactions.length > 50) {
+      sessionMemory.interactions = sessionMemory.interactions.slice(-50);
+    }
+    
+    // Extract and store preferences
+    this.extractPreferences(sessionId, userMessage, context);
+    
+    // Auto-save periodically
+    if (sessionMemory.interactions.length % 10 === 0) {
+      this.saveMemory();
+    }
+    
+    return learningEntry;
+  }
+
+  calculateEffectiveness(userMessage, response) {
+    // Simple effectiveness scoring based on response length and engagement
+    const messageLength = userMessage.length;
+    const responseLength = response.length;
+    const hasQuestions = (response.match(/\?/g) || []).length;
+    const hasSuggestions = response.includes('suggestion') || response.includes('recommend');
+    
+    return Math.min(
+      (responseLength / Math.max(messageLength, 1)) * 0.4 +
+      hasQuestions * 0.3 +
+      hasSuggestions * 0.3,
+      1.0
+    );
+  }
+
+  extractPatterns(userMessage, context) {
+    const patterns = {
+      interestAreas: [],
+      questionTypes: [],
+      timingPatterns: {}
+    };
+
+    // Extract interest areas
+    const interestKeywords = {
+      residential: ['house', 'home', 'residential', 'villa'],
+      commercial: ['commercial', 'office', 'business', 'mall'],
+      industrial: ['industrial', 'factory', 'warehouse'],
+      cost: ['cost', 'price', 'budget', 'estimate'],
+      timeline: ['time', 'duration', 'schedule', 'deadline']
+    };
+
+    Object.entries(interestKeywords).forEach(([area, keywords]) => {
+      if (keywords.some(keyword => userMessage.includes(keyword))) {
+        patterns.interestAreas.push(area);
+      }
+    });
+
+    // Extract question types
+    if (userMessage.includes('how much')) patterns.questionTypes.push('cost_inquiry');
+    if (userMessage.includes('how long')) patterns.questionTypes.push('timeline_inquiry');
+    if (userMessage.includes('can you')) patterns.questionTypes.push('capability_inquiry');
+    if (userMessage.includes('what about')) patterns.questionTypes.push('comparison_inquiry');
+
+    return patterns;
+  }
+
+  extractPreferences(sessionId, userMessage, context) {
+    if (!context.clientName && !context.clientEmail) return;
+    
+    const clientId = context.clientEmail || context.clientName;
+    if (!clientPreferences.has(clientId)) {
+      clientPreferences.set(clientId, {
+        clientId,
+        preferences: {},
+        interactionHistory: [],
+        lastUpdated: new Date().toISOString()
+      });
+    }
+    
+    const clientPrefs = clientPreferences.get(clientId);
+    
+    // Update preferences based on current interaction
+    if (context.projectDetails.type) {
+      clientPrefs.preferences.projectType = context.projectDetails.type;
+    }
+    
+    if (context.lastTopic) {
+      clientPrefs.preferences.lastTopics = clientPrefs.preferences.lastTopics || [];
+      if (!clientPrefs.preferences.lastTopics.includes(context.lastTopic)) {
+        clientPrefs.preferences.lastTopics.push(context.lastTopic);
+      }
+    }
+    
+    // Add to interaction history
+    clientPrefs.interactionHistory.push({
+      timestamp: new Date().toISOString(),
+      topic: context.lastTopic,
+      messageLength: userMessage.length
+    });
+    
+    // Keep history manageable
+    if (clientPrefs.interactionHistory.length > 20) {
+      clientPrefs.interactionHistory = clientPrefs.interactionHistory.slice(-20);
+    }
+    
+    clientPrefs.lastUpdated = new Date().toISOString();
+    
+    return clientPrefs;
+  }
+
+  getClientPreferences(clientId) {
+    return clientPreferences.get(clientId);
+  }
+
+  getLearningInsights(sessionId, currentTopic) {
+    const sessionMemory = learningMemory.get(sessionId);
+    if (!sessionMemory) return null;
+    
+    const recentInteractions = sessionMemory.interactions.slice(-5);
+    const insights = {
+      preferredTopics: [],
+      effectiveResponses: [],
+      avoidPatterns: []
+    };
+
+    // Analyze patterns from recent interactions
+    recentInteractions.forEach(interaction => {
+      if (interaction.context.lastTopic === currentTopic) {
+        if (interaction.effectiveness > 0.7) {
+          insights.effectiveResponses.push(interaction.response.substring(0, 100));
+        }
+      }
+    });
+
+    return insights;
+  }
+}
+
+const learningSystem = new PersistentLearningSystem();
+// =====================================================================
+
+// ==================== NEW GOAL-ORIENTED ARCHITECTURE ====================
+class GoalOrientedArchitecture {
+  constructor() {
+    this.activeGoals = new Map();
+    this.goalTemplates = {
+      PROJECT_CONSULTATION: {
+        name: 'Complete Project Consultation',
+        steps: [
+          'identify_project_type',
+          'gather_requirements',
+          'provide_cost_estimate',
+          'schedule_meeting',
+          'follow_up'
+        ],
+        priority: 'high',
+        estimatedDuration: '30 minutes'
+      },
+      COST_ESTIMATION: {
+        name: 'Detailed Cost Estimation',
+        steps: [
+          'identify_project_scope',
+          'gather_specifications',
+          'calculate_materials',
+          'provide_quote',
+          'discuss_financing'
+        ],
+        priority: 'medium',
+        estimatedDuration: '20 minutes'
+      },
+      SERVICE_DISCOVERY: {
+        name: 'Service Discovery & Matching',
+        steps: [
+          'understand_client_needs',
+          'match_services',
+          'provide_portfolio',
+          'schedule_expert_consultation'
+        ],
+        priority: 'low',
+        estimatedDuration: '15 minutes'
+      }
+    };
+  }
+
+  setGoal(sessionId, goalType, context) {
+    const goalTemplate = this.goalTemplates[goalType];
+    if (!goalTemplate) return null;
+
+    const goal = {
+      id: uuidv4(),
+      type: goalType,
+      name: goalTemplate.name,
+      steps: [...goalTemplate.steps],
+      currentStep: 0,
+      progress: 0,
+      startedAt: new Date().toISOString(),
+      context: {
+        projectType: context.projectDetails?.type,
+        clientName: context.clientName,
+        lastTopic: context.lastTopic
+      },
+      completed: false
+    };
+
+    this.activeGoals.set(sessionId, goal);
+    goalStates.set(sessionId, goal);
+    
+    console.log(`🤖 Goal set for ${sessionId}: ${goal.name}`);
+    return goal;
+  }
+
+  updateGoalProgress(sessionId, stepCompleted) {
+    const goal = this.activeGoals.get(sessionId);
+    if (!goal) return null;
+
+    // Find current step index
+    const stepIndex = goal.steps.indexOf(stepCompleted);
+    if (stepIndex > goal.currentStep) {
+      goal.currentStep = stepIndex;
+      goal.progress = ((stepIndex + 1) / goal.steps.length) * 100;
+      
+      // Check if goal is complete
+      if (stepIndex === goal.steps.length - 1) {
+        goal.completed = true;
+        goal.completedAt = new Date().toISOString();
+        console.log(`🎯 Goal completed for ${sessionId}: ${goal.name}`);
+      }
+      
+      return goal;
+    }
+    
+    return null;
+  }
+
+  getNextAction(sessionId, context) {
+    const goal = this.activeGoals.get(sessionId);
+    if (!goal || goal.completed) return null;
+
+    const currentStep = goal.steps[goal.currentStep];
+    
+    // Map step to action
+    const stepActions = {
+      'identify_project_type': {
+        action: 'ask_project_type',
+        prompt: 'What type of construction project are you considering?',
+        suggestions: ['Residential', 'Commercial', 'Industrial']
+      },
+      'gather_requirements': {
+        action: 'ask_requirements',
+        prompt: 'Could you tell me more about your project requirements?',
+        suggestions: ['Size/Area', 'Budget Range', 'Timeline', 'Special Features']
+      },
+      'provide_cost_estimate': {
+        action: 'provide_estimate',
+        prompt: 'Based on what you\'ve shared, here\'s a preliminary cost estimate...',
+        suggestions: ['Detailed Calculation', 'Schedule Expert Review']
+      },
+      'schedule_meeting': {
+        action: 'schedule_meeting',
+        prompt: 'Would you like to schedule a consultation with our experts?',
+        suggestions: ['Yes, schedule meeting', 'Not now']
+      }
+    };
+
+    return stepActions[currentStep] || null;
+  }
+
+  shouldSetGoal(context) {
+    // Determine if we should set a goal based on context
+    const conditions = [
+      context.interactionCount > 2,
+      context.projectDetails?.type,
+      !this.activeGoals.has(context.sessionId),
+      context.state === conversationStates.PROJECT_DETAILS || 
+      context.state === conversationStates.SERVICE_INQUIRY
+    ];
+
+    return conditions.every(condition => condition === true);
+  }
+
+  getGoalProgress(sessionId) {
+    const goal = this.activeGoals.get(sessionId);
+    if (!goal) return null;
+    
+    return {
+      name: goal.name,
+      progress: Math.round(goal.progress),
+      currentStep: goal.steps[goal.currentStep],
+      stepsRemaining: goal.steps.length - goal.currentStep - 1
+    };
+  }
+}
+
+const goalArchitecture = new GoalOrientedArchitecture();
+// =====================================================================
+
+// ==================== NEW TOOL USAGE & API INTEGRATION ====================
+class ToolUsageSystem {
+  constructor() {
+    this.availableTools = {
+      MARKET_RESEARCH: {
+        name: 'Market Research Tool',
+        description: 'Get real-time construction market data',
+        endpoint: EXTERNAL_APIS.MARKET_DATA,
+        requires: ['location', 'project_type']
+      },
+      COST_CALCULATOR: {
+        name: 'Advanced Cost Calculator',
+        description: 'Detailed construction cost calculation',
+        endpoint: EXTERNAL_APIS.MATERIAL_PRICES,
+        requires: ['specifications', 'quality_level']
+      },
+      SCHEDULE_OPTIMIZER: {
+        name: 'Schedule Optimizer',
+        description: 'Optimize project timeline based on resources',
+        endpoint: null, // Internal tool
+        requires: ['project_scope', 'deadline']
+      },
+      WEATHER_CHECK: {
+        name: 'Weather Impact Analysis',
+        description: 'Check weather impact on construction schedule',
+        endpoint: EXTERNAL_APIS.WEATHER_API,
+        requires: ['location', 'timeline']
+      }
+    };
+  }
+
+  async useTool(toolName, parameters, context) {
+    const tool = this.availableTools[toolName];
+    if (!tool) {
+      throw new Error(`Tool ${toolName} not available`);
+    }
+
+    console.log(`🤖 Using tool: ${tool.name} with params:`, parameters);
+
+    try {
+      let result;
+      
+      switch(toolName) {
+        case 'MARKET_RESEARCH':
+          result = await this.performMarketResearch(parameters, context);
+          break;
+        case 'COST_CALCULATOR':
+          result = await this.performCostCalculation(parameters, context);
+          break;
+        case 'SCHEDULE_OPTIMIZER':
+          result = this.optimizeSchedule(parameters, context);
+          break;
+        case 'WEATHER_CHECK':
+          result = await this.checkWeatherImpact(parameters, context);
+          break;
+        default:
+          result = { success: false, error: 'Tool not implemented' };
+      }
+      
+      // Log tool usage
+      this.logToolUsage(context.sessionId, toolName, parameters, result);
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ Tool ${toolName} error:`, error);
+      return { 
+        success: false, 
+        error: error.message,
+        fallback: this.getToolFallback(toolName, parameters)
+      };
+    }
+  }
+
+  async performMarketResearch(parameters, context) {
+    // In a real implementation, this would call an external API
+    // For now, simulate with knowledge data
+    
+    const projectType = parameters.project_type || context.projectDetails?.type;
+    const simulatedData = {
+      current_market_trends: `Construction costs in Pakistan are ${this.getMarketTrend()}`,
+      material_prices: this.getMaterialPrices(projectType),
+      labor_rates: this.getLaborRates(),
+      recommendations: this.getMarketRecommendations(projectType),
+      timestamp: new Date().toISOString()
+    };
+    
+    return {
+      success: true,
+      data: simulatedData,
+      source: 'Meezan Developers Market Intelligence',
+      confidence: 0.85
+    };
+  }
+
+  async performCostCalculation(parameters, context) {
+    // Simulate detailed cost calculation
+    const area = parameters.area || 1000; // sq ft
+    const quality = parameters.quality_level || 'standard';
+    const projectType = parameters.project_type || context.projectDetails?.type;
+    
+    const baseRates = this.getBaseRates(projectType, quality);
+    const totalCost = area * baseRates.per_sqft;
+    
+    const breakdown = {
+      materials: totalCost * 0.45,
+      labor: totalCost * 0.35,
+      equipment: totalCost * 0.10,
+      overhead: totalCost * 0.10,
+      total: totalCost
+    };
+    
+    return {
+      success: true,
+      calculation: {
+        area_sqft: area,
+        rate_per_sqft: baseRates.per_sqft,
+        quality_level: quality,
+        project_type: projectType,
+        total_estimate: `PKR ${totalCost.toLocaleString()}`,
+        detailed_breakdown: breakdown,
+        validity_period: '30 days',
+        assumptions: ['Standard design', 'Normal site conditions', 'No specialized requirements']
+      }
+    };
+  }
+
+  optimizeSchedule(parameters, context) {
+    const scope = parameters.project_scope || 'medium';
+    const deadline = parameters.deadline || '6 months';
+    
+    const timeline = {
+      design_phase: '1-2 weeks',
+      approval_phase: '2-4 weeks',
+      construction_phase: this.getConstructionTimeline(scope),
+      finishing_phase: '1-2 weeks',
+      total_duration: deadline,
+      critical_path: ['design_approval', 'foundation', 'structural_work'],
+      buffer_time: '2 weeks'
+    };
+    
+    return {
+      success: true,
+      optimized_schedule: timeline,
+      recommendations: [
+        'Start permit applications early',
+        'Order long-lead materials in advance',
+        'Consider phased construction for large projects'
+      ]
+    };
+  }
+
+  async checkWeatherImpact(parameters, context) {
+    // Simulate weather check
+    const location = parameters.location || 'Pakistan';
+    const timeline = parameters.timeline || 'next 3 months';
+    
+    return {
+      success: true,
+      weather_impact: {
+        location,
+        season: this.getCurrentSeason(),
+        impact_level: 'moderate',
+        recommendations: [
+          'Plan foundation work during dry season',
+          'Schedule roofing before monsoon',
+          'Consider indoor work during rainy season'
+        ],
+        risk_factors: ['Monsoon delays', 'Extreme heat', 'Fog in northern areas'],
+        best_construction_months: ['October', 'November', 'March', 'April']
+      }
+    };
+  }
+
+  logToolUsage(sessionId, toolName, parameters, result) {
+    const usageLog = {
+      timestamp: new Date().toISOString(),
+      tool: toolName,
+      parameters,
+      result_success: result.success,
+      confidence: result.confidence || 0.5
+    };
+    
+    // Store in session context
+    const context = conversationContexts.get(sessionId);
+    if (context) {
+      context.toolUsage = context.toolUsage || [];
+      context.toolUsage.push(usageLog);
+    }
+    
+    return usageLog;
+  }
+
+  // Helper methods for simulation
+  getMarketTrend() {
+    const trends = ['stable', 'slightly increasing', 'moderate growth', 'steady'];
+    return trends[Math.floor(Math.random() * trends.length)];
+  }
+
+  getMaterialPrices(projectType) {
+    const prices = {
+      residential: {
+        cement: 'PKR 1,100-1,300 per bag',
+        steel: 'PKR 220,000-250,000 per ton',
+        bricks: 'PKR 12-15 per brick',
+        sand: 'PKR 4,000-5,000 per 100 cubic feet'
+      },
+      commercial: {
+        cement: 'PKR 1,200-1,400 per bag',
+        steel: 'PKR 230,000-260,000 per ton',
+        glass: 'PKR 200-300 per sq ft',
+        aluminum: 'PKR 400-600 per kg'
+      }
+    };
+    
+    return prices[projectType] || prices.residential;
+  }
+
+  getLaborRates() {
+    return {
+      mason: 'PKR 1,500-2,000 per day',
+      carpenter: 'PKR 1,200-1,800 per day',
+      electrician: 'PKR 1,500-2,200 per day',
+      plumber: 'PKR 1,300-1,900 per day',
+      laborer: 'PKR 800-1,200 per day'
+    };
+  }
+
+  getMarketRecommendations(projectType) {
+    const recommendations = {
+      residential: [
+        'Consider pre-cast construction for faster completion',
+        'Local materials can reduce costs by 15-20%',
+        'Energy-efficient designs provide long-term savings'
+      ],
+      commercial: [
+        'Modular construction reduces timeline by 30%',
+        'Smart building systems increase property value',
+        'Consider green building certifications'
+      ]
+    };
+    
+    return recommendations[projectType] || [
+      'Get multiple quotes for specialized work',
+      'Consider phased construction for better cash flow',
+      'Regular site supervision ensures quality'
+    ];
+  }
+
+  getBaseRates(projectType, quality) {
+    const rates = {
+      residential: {
+        economy: 1800,
+        standard: 2200,
+        premium: 2800
+      },
+      commercial: {
+        economy: 2500,
+        standard: 3200,
+        premium: 4000
+      },
+      industrial: {
+        economy: 2000,
+        standard: 2800,
+        premium: 3500
+      }
+    };
+    
+    const typeRates = rates[projectType] || rates.residential;
+    return { per_sqft: typeRates[quality] || typeRates.standard };
+  }
+
+  getConstructionTimeline(scope) {
+    const timelines = {
+      small: '2-3 months',
+      medium: '4-6 months',
+      large: '7-12 months',
+      xlarge: '12-24 months'
+    };
+    
+    return timelines[scope] || timelines.medium;
+  }
+
+  getCurrentSeason() {
+    const month = new Date().getMonth();
+    if (month >= 3 && month <= 5) return 'Spring';
+    if (month >= 6 && month <= 8) return 'Summer';
+    if (month >= 9 && month <= 11) return 'Fall';
+    return 'Winter';
+  }
+
+  getToolFallback(toolName, parameters) {
+    const fallbacks = {
+      MARKET_RESEARCH: 'Based on our extensive project database, I can provide expert insights.',
+      COST_CALCULATOR: 'Using our standard estimation models, here\'s a reliable calculation.',
+      SCHEDULE_OPTIMIZER: 'Based on typical project timelines, here\'s a recommended schedule.',
+      WEATHER_CHECK: 'Considering seasonal patterns, here are construction timing recommendations.'
+    };
+    
+    return fallbacks[toolName] || 'I\'ll provide expert guidance based on our experience.';
+  }
+}
+
+const toolSystem = new ToolUsageSystem();
+// =====================================================================
+
+// ==================== NEW SELF-IMPROVEMENT MECHANISMS ====================
+class SelfImprovementSystem {
+  constructor() {
+    this.successMetrics = new Map();
+    this.optimizationHistory = [];
+    this.improvementCycles = 0;
+  }
+
+  trackSuccess(sessionId, interaction, outcome) {
+    const metric = {
+      timestamp: new Date().toISOString(),
+      sessionId,
+      interactionType: interaction.type || 'general',
+      outcome: this.categorizeOutcome(outcome),
+      responseLength: interaction.response?.length || 0,
+      clientEngagement: this.calculateEngagement(interaction),
+      suggestionsUsed: interaction.suggestions?.length || 0
+    };
+
+    if (!this.successMetrics.has(sessionId)) {
+      this.successMetrics.set(sessionId, []);
+    }
+    
+    const sessionMetrics = this.successMetrics.get(sessionId);
+    sessionMetrics.push(metric);
+    
+    // Keep only last 20 metrics per session
+    if (sessionMetrics.length > 20) {
+      sessionMetrics.shift();
+    }
+    
+    // Analyze for optimization opportunities
+    this.analyzeForOptimization(sessionId, metric);
+    
+    return metric;
+  }
+
+  categorizeOutcome(outcome) {
+    if (outcome.includes('success') || outcome.includes('confirmed') || outcome.includes('booked')) {
+      return 'positive';
+    } else if (outcome.includes('failed') || outcome.includes('error') || outcome.includes('canceled')) {
+      return 'negative';
+    }
+    return 'neutral';
+  }
+
+  calculateEngagement(interaction) {
+    const factors = [
+      interaction.response?.length > 100 ? 0.3 : 0.1,
+      (interaction.suggestions?.length || 0) > 0 ? 0.3 : 0.1,
+      interaction.context?.interactionCount > 3 ? 0.2 : 0.1,
+      interaction.context?.clientName ? 0.2 : 0.1
+    ];
+    
+    return factors.reduce((sum, factor) => sum + factor, 0);
+  }
+
+  analyzeForOptimization(sessionId, metric) {
+    const recentMetrics = this.getRecentMetrics(50);
+    if (recentMetrics.length < 10) return; // Need enough data
+    
+    const positiveRate = recentMetrics.filter(m => m.outcome === 'positive').length / recentMetrics.length;
+    const avgEngagement = recentMetrics.reduce((sum, m) => sum + m.clientEngagement, 0) / recentMetrics.length;
+    
+    // Check if optimization is needed
+    if (positiveRate < 0.6 || avgEngagement < 0.5) {
+      this.performOptimizationCycle(sessionId, {
+        positiveRate,
+        avgEngagement,
+        sampleSize: recentMetrics.length
+      });
+    }
+  }
+
+  getRecentMetrics(count = 50) {
+    const allMetrics = [];
+    for (const metrics of this.successMetrics.values()) {
+      allMetrics.push(...metrics);
+    }
+    
+    // Sort by timestamp, newest first
+    allMetrics.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    return allMetrics.slice(0, count);
+  }
+
+  performOptimizationCycle(sessionId, analysis) {
+    this.improvementCycles++;
+    
+    const optimizations = [];
+    
+    // Analyze response patterns
+    const recentMetrics = this.getRecentMetrics(20);
+    const responseLengths = recentMetrics.map(m => m.responseLength);
+    const avgResponseLength = responseLengths.reduce((a, b) => a + b, 0) / responseLengths.length;
+    
+    // Optimization 1: Adjust response length
+    if (avgResponseLength > 300) {
+      optimizations.push({
+        type: 'response_length',
+        action: 'Reduce average response length by 20%',
+        reason: 'Longer responses may reduce engagement'
+      });
+    } else if (avgResponseLength < 100) {
+      optimizations.push({
+        type: 'response_length',
+        action: 'Increase average response length by 30%',
+        reason: 'Very short responses may lack helpful details'
+      });
+    }
+    
+    // Optimization 2: Suggestion frequency
+    const suggestionsPerInteraction = recentMetrics.reduce((sum, m) => sum + m.suggestionsUsed, 0) / recentMetrics.length;
+    if (suggestionsPerInteraction < 1) {
+      optimizations.push({
+        type: 'suggestion_frequency',
+        action: 'Increase proactive suggestions by 50%',
+        reason: 'More suggestions improve engagement and goal progression'
+      });
+    }
+    
+    // Optimization 3: Personalization
+    const personalizedCount = recentMetrics.filter(m => 
+      m.interactionType.includes('personalized') || m.interactionType.includes('proactive')
+    ).length;
+    
+    if (personalizedCount / recentMetrics.length < 0.3) {
+      optimizations.push({
+        type: 'personalization',
+        action: 'Increase use of client names and references by 40%',
+        reason: 'Personalization improves client connection'
+      });
+    }
+    
+    // Record optimization
+    const optimizationRecord = {
+      cycle: this.improvementCycles,
+      timestamp: new Date().toISOString(),
+      sessionId,
+      analysis,
+      optimizations,
+      implemented: false
+    };
+    
+    this.optimizationHistory.push(optimizationRecord);
+    
+    // Keep history manageable
+    if (this.optimizationHistory.length > 50) {
+      this.optimizationHistory = this.optimizationHistory.slice(-50);
+    }
+    
+    console.log(`🤖 Optimization Cycle ${this.improvementCycles}:`, optimizations.length, 'optimizations suggested');
+    
+    return optimizationRecord;
+  }
+
+  adaptConversationStrategy(sessionId, context) {
+    const optimizations = this.optimizationHistory
+      .filter(o => o.implemented && o.optimizations.length > 0)
+      .flatMap(o => o.optimizations);
+    
+    const strategyAdjustments = {
+      responseLength: 150, // Default
+      suggestionFrequency: 2,
+      personalizationLevel: 'medium',
+      proactiveness: 'moderate'
+    };
+    
+    // Apply optimizations
+    optimizations.forEach(opt => {
+      switch(opt.type) {
+        case 'response_length':
+          if (opt.action.includes('Reduce')) {
+            strategyAdjustments.responseLength *= 0.8;
+          } else if (opt.action.includes('Increase')) {
+            strategyAdjustments.responseLength *= 1.3;
+          }
+          break;
+        case 'suggestion_frequency':
+          strategyAdjustments.suggestionFrequency *= 1.5;
+          break;
+        case 'personalization':
+          strategyAdjustments.personalizationLevel = 'high';
+          break;
+      }
+    });
+    
+    // Adjust based on context
+    if (context.interactionCount < 3) {
+      strategyAdjustments.responseLength = Math.min(strategyAdjustments.responseLength, 120);
+      strategyAdjustments.suggestionFrequency = 1;
+    } else if (context.interactionCount > 10) {
+      strategyAdjustments.proactiveness = 'high';
+      strategyAdjustments.suggestionFrequency = Math.max(strategyAdjustments.suggestionFrequency, 3);
+    }
+    
+    return strategyAdjustments;
+  }
+
+  getImprovementMetrics() {
+    const recentCycles = this.optimizationHistory.slice(-10);
+    const implementedCycles = recentCycles.filter(c => c.implemented);
+    
+    return {
+      totalCycles: this.improvementCycles,
+      recentCycles: recentCycles.length,
+      implementedOptimizations: implementedCycles.reduce((sum, cycle) => sum + cycle.optimizations.length, 0),
+      avgOptimizationsPerCycle: recentCycles.length > 0 ? 
+        recentCycles.reduce((sum, cycle) => sum + cycle.optimizations.length, 0) / recentCycles.length : 0,
+      lastOptimization: recentCycles.length > 0 ? recentCycles[0].timestamp : null
+    };
+  }
+}
+
+const improvementSystem = new SelfImprovementSystem();
+// =====================================================================
 
 // ==================== AI AGENT HELPER FUNCTIONS ====================
 
@@ -198,7 +1253,18 @@ function initializeContext(sessionId) {
     interactionCount: 0,
     lastInteraction: new Date().toISOString(),
     createdAt: new Date().toISOString(),
-    clientName: null // Track client name for personalization
+    clientName: null, // Track client name for personalization
+    // ==================== NEW CONTEXT FIELDS ====================
+    goals: [],
+    toolUsage: [],
+    learningInsights: [],
+    strategyAdjustments: {},
+    successMetrics: [],
+    clientPreferences: null,
+    autonomousActions: 0,
+    lastProactiveSuggestion: null,
+    multiStepPlan: null
+    // ============================================================
   };
   
   conversationContexts.set(sessionId, context);
@@ -215,7 +1281,12 @@ function logConversation(sessionId, userMessage, response, context) {
       lastTopic: context.lastTopic,
       state: context.state,
       interactionCount: context.interactionCount,
-      clientName: context.clientName
+      clientName: context.clientName,
+      // ==================== NEW LOGGING ====================
+      goals: context.goals?.length || 0,
+      toolUsage: context.toolUsage?.length || 0,
+      autonomousActions: context.autonomousActions || 0
+      // =====================================================
     },
     timestamp: new Date().toISOString()
   });
@@ -237,6 +1308,221 @@ function formatResponse(reply, suggestions = [], action = null, details = null, 
   
   return response;
 }
+
+// ==================== NEW PROACTIVE BEHAVIOR FUNCTIONS ====================
+async function evaluateAndTakeInitiative(sessionId, context, userMessage) {
+  const shouldTakeInitiative = decisionEngine.evaluateInitiative(context);
+  
+  if (!shouldTakeInitiative) return null;
+  
+  const strategy = decisionEngine.chooseStrategy(context);
+  const initiativeResult = {
+    strategy,
+    timestamp: new Date().toISOString(),
+    triggeredBy: userMessage.substring(0, 50)
+  };
+  
+  // Log the decision
+  decisionEngine.logDecision(sessionId, {
+    type: 'initiative',
+    strategy,
+    context: {
+      state: context.state,
+      interactionCount: context.interactionCount
+    }
+  });
+  
+  context.autonomousActions = (context.autonomousActions || 0) + 1;
+  context.lastProactiveSuggestion = new Date().toISOString();
+  
+  // Execute initiative based on strategy
+  switch(strategy) {
+    case 'PROACTIVE_SUGGESTION':
+      return await generateProactiveSuggestion(sessionId, context, userMessage);
+    case 'DETAILED_RESEARCH':
+      return await performAutonomousResearch(sessionId, context, userMessage);
+    case 'MULTI_STEP_PLAN':
+      return await createMultiStepPlan(sessionId, context, userMessage);
+    default:
+      return null;
+  }
+}
+
+async function generateProactiveSuggestion(sessionId, context, userMessage) {
+  // Get client preferences if available
+  const clientId = context.clientEmail || context.clientName;
+  const preferences = clientPreferences.get(clientId);
+  
+  let suggestion;
+  if (preferences && preferences.preferences?.lastTopics) {
+    // Suggest based on previous interests
+    const lastTopic = preferences.preferences.lastTopics[preferences.preferences.lastTopics.length - 1];
+    suggestion = `Based on your interest in ${lastTopic}, you might want to consider our specialized ${lastTopic} consultation service.`;
+  } else if (context.projectDetails.type) {
+    // Suggest based on project type
+    suggestion = `For your ${context.projectDetails.type} project, I recommend checking our detailed ${context.projectDetails.type} portfolio and cost calculator.`;
+  } else {
+    // General proactive suggestion
+    suggestion = `Many clients find our project planning guide helpful when starting construction projects. Would you like me to share it?`;
+  }
+  
+  const proactiveResponse = generateNaturalResponse('proactive_suggestion', {
+    topic: context.lastTopic || 'construction projects',
+    suggestion: suggestion
+  });
+  
+  return {
+    type: 'proactive_suggestion',
+    response: proactiveResponse,
+    basedOn: preferences ? 'client_preferences' : 'conversation_context',
+    timestamp: new Date().toISOString()
+  };
+}
+
+async function performAutonomousResearch(sessionId, context, userMessage) {
+  // Check if research is needed
+  const needsResearch = 
+    userMessage.includes('latest') ||
+    userMessage.includes('current') ||
+    userMessage.includes('market') ||
+    userMessage.includes('trend') ||
+    (context.lastTopic === 'cost estimation' && context.interactionCount > 3);
+  
+  if (!needsResearch) return null;
+  
+  try {
+    // Use research tool
+    const researchParams = {
+      project_type: context.projectDetails.type,
+      location: 'Pakistan',
+      timeframe: 'current'
+    };
+    
+    const researchResult = await toolSystem.useTool('MARKET_RESEARCH', researchParams, context);
+    
+    if (researchResult.success) {
+      const insight = `Based on current market research: ${researchResult.data.current_market_trends}`;
+      
+      return {
+        type: 'autonomous_research',
+        response: insight,
+        toolUsed: 'MARKET_RESEARCH',
+        confidence: researchResult.confidence,
+        timestamp: new Date().toISOString()
+      };
+    }
+  } catch (error) {
+    console.error('❌ Autonomous research failed:', error);
+  }
+  
+  return null;
+}
+
+async function createMultiStepPlan(sessionId, context, userMessage) {
+  // Check if multi-step planning is appropriate
+  const shouldPlan = 
+    context.interactionCount > 5 &&
+    context.projectDetails.type &&
+    !context.multiStepPlan;
+  
+  if (!shouldPlan) return null;
+  
+  // Create a multi-step plan
+  const plan = {
+    id: uuidv4(),
+    goal: `Complete ${context.projectDetails.type} project consultation`,
+    steps: [
+      'Detailed requirements gathering',
+      'Site analysis (if applicable)',
+      'Cost estimation with breakdown',
+      'Timeline development',
+      'Expert consultation scheduling',
+      'Follow-up and adjustments'
+    ],
+    currentStep: 0,
+    estimatedCompletion: '1-2 weeks',
+    created: new Date().toISOString()
+  };
+  
+  context.multiStepPlan = plan;
+  context.state = conversationStates.MULTI_STEP_PLANNING;
+  
+  const planIntroduction = `I've created a comprehensive plan for your ${context.projectDetails.type} project. We'll work through ${plan.steps.length} key steps to ensure all aspects are covered. Ready to begin with ${plan.steps[0]}?`;
+  
+  return {
+    type: 'multi_step_plan',
+    response: planIntroduction,
+    plan: plan,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function applyLearningInsights(sessionId, context, userMessage) {
+  const insights = learningSystem.getLearningInsights(sessionId, context.lastTopic);
+  
+  if (!insights || insights.effectiveResponses.length === 0) {
+    return null;
+  }
+  
+  // Use previous effective responses as guidance
+  context.learningInsights = insights;
+  
+  const learningResponse = generateNaturalResponse('learning_insight', {
+    topic: context.lastTopic || 'your project',
+    insight: `I've found that detailed breakdowns work well for questions like this`,
+    preference: insights.preferredTopics[0] || 'detailed information'
+  });
+  
+  return {
+    type: 'learning_applied',
+    response: learningResponse,
+    insightsUsed: insights.effectiveResponses.length,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function optimizeResponseBasedOnMetrics(sessionId, response, context) {
+  const strategy = improvementSystem.adaptConversationStrategy(sessionId, context);
+  
+  // Apply optimizations to response
+  let optimizedResponse = response.reply;
+  
+  // Adjust response length if needed
+  if (strategy.responseLength < 100 && optimizedResponse.length > 150) {
+    optimizedResponse = optimizedResponse.substring(0, 150) + '...';
+  } else if (strategy.responseLength > 200 && optimizedResponse.length < 150) {
+    // Add more detail if response is too short
+    optimizedResponse += '\n\nWould you like me to provide more details on any specific aspect?';
+  }
+  
+  // Adjust suggestion count
+  if (strategy.suggestionFrequency > response.suggestions.length) {
+    // Add more suggestions
+    const additionalSuggestions = [
+      "View Project Gallery",
+      "Download Planning Guide",
+      "Talk to Project Manager"
+    ];
+    
+    response.suggestions = [...response.suggestions, ...additionalSuggestions]
+      .slice(0, strategy.suggestionFrequency);
+  }
+  
+  // Apply personalization
+  if (strategy.personalizationLevel === 'high' && context.clientName) {
+    optimizedResponse = optimizedResponse.replace(
+      /(Hello|Hi|Welcome)/,
+      `$1 ${context.clientName}`
+    );
+  }
+  
+  response.reply = optimizedResponse;
+  response.optimized = true;
+  response.strategyApplied = strategy;
+  
+  return response;
+}
+// =====================================================================
 
 // Intelligent follow-up detection
 function isFollowUpQuestion(userMessage, context) {
@@ -422,6 +1708,30 @@ router.post('/chat', async (req, res) => {
       context.conversationHistory = context.conversationHistory.slice(-8);
     }
 
+    // ==================== NEW: APPLY LEARNING INSIGHTS ====================
+    const learningResult = applyLearningInsights(sessionId, context, userMessage);
+    if (learningResult) {
+      console.log('🤖 Learning applied:', learningResult.type);
+    }
+    // =====================================================================
+
+    // ==================== NEW: EVALUATE AND TAKE INITIATIVE ====================
+    const initiativeResult = await evaluateAndTakeInitiative(sessionId, context, userMessage);
+    if (initiativeResult) {
+      console.log('🤖 Autonomous initiative taken:', initiativeResult.type);
+      
+      // If initiative generated a response, incorporate it
+      if (initiativeResult.response && context.interactionCount > 2) {
+        // Add initiative response as a proactive addition
+        context.conversationHistory.push({
+          type: 'proactive_suggestion',
+          content: initiativeResult.response,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    // ==========================================================================
+
     // Check for website redirection first
     const redirectInfo = handleWebsiteRedirect(userMessage);
     if (redirectInfo) {
@@ -437,6 +1747,13 @@ router.post('/chat', async (req, res) => {
         },
         sessionId
       );
+      
+      // ==================== NEW: TRACK SUCCESS METRICS ====================
+      improvementSystem.trackSuccess(sessionId, {
+        type: 'website_redirect',
+        response: response.reply
+      }, 'redirect_success');
+      // ====================================================================
       
       logConversation(sessionId, message, response, context);
       return res.json(response);
@@ -494,6 +1811,76 @@ router.post('/chat', async (req, res) => {
       console.log('🤖 AI Agent detected meeting request:', userMessage);
       return await handleMeetingBooking(req, res, sessionId, userMessage, context);
     }
+
+    // ==================== NEW: GOAL-ORIENTED PROCESSING ====================
+    // Check if we should set a goal
+    if (goalArchitecture.shouldSetGoal(context)) {
+      const goalType = userMessage.includes('cost') ? 'COST_ESTIMATION' :
+                      userMessage.includes('service') ? 'SERVICE_DISCOVERY' :
+                      'PROJECT_CONSULTATION';
+      
+      const goal = goalArchitecture.setGoal(sessionId, goalType, context);
+      if (goal) {
+        context.goals = context.goals || [];
+        context.goals.push(goal);
+        context.state = conversationStates.GOAL_PURSUIT;
+        
+        const nextAction = goalArchitecture.getNextAction(sessionId, context);
+        if (nextAction) {
+          const goalResponse = formatResponse(
+            nextAction.prompt,
+            nextAction.suggestions,
+            'goal_initiated',
+            { goal: goal.name, nextStep: nextAction.action },
+            sessionId
+          );
+          
+          logConversation(sessionId, message, goalResponse, context);
+          return res.json(goalResponse);
+        }
+      }
+    }
+
+    // Check if we have an active goal
+    const activeGoal = goalArchitecture.activeGoals.get(sessionId);
+    if (activeGoal && !activeGoal.completed) {
+      const nextAction = goalArchitecture.getNextAction(sessionId, context);
+      if (nextAction) {
+        // Check if user message relates to current goal step
+        const currentStep = activeGoal.steps[activeGoal.currentStep];
+        const stepKeywords = {
+          'identify_project_type': ['project', 'build', 'construct', 'residential', 'commercial'],
+          'gather_requirements': ['need', 'require', 'want', 'size', 'budget'],
+          'provide_cost_estimate': ['cost', 'price', 'how much', 'estimate'],
+          'schedule_meeting': ['meeting', 'consult', 'talk', 'schedule']
+        };
+        
+        const keywords = stepKeywords[currentStep] || [];
+        if (keywords.some(keyword => userMessage.includes(keyword))) {
+          // Update goal progress
+          goalArchitecture.updateGoalProgress(sessionId, currentStep);
+          
+          const goalProgress = goalArchitecture.getGoalProgress(sessionId);
+          const progressResponse = generateNaturalResponse('goal_achievement', {
+            goal: activeGoal.name,
+            nextStep: activeGoal.steps[activeGoal.currentStep + 1] || 'completion',
+            progress: goalProgress.progress
+          });
+          
+          const response = formatResponse(
+            progressResponse,
+            nextAction.suggestions,
+            'goal_progress',
+            { goalProgress },
+            sessionId
+          );
+          
+          logConversation(sessionId, message, response, context);
+          return res.json(response);
+        }
+      }
+    }
+    // =====================================================================
 
     // Intelligent general query handler
     return await handleGeneralQuery(req, res, sessionId, message, userMessage, context);
@@ -690,10 +2077,29 @@ async function handleCostCalculator(res, sessionId, context) {
 // AI Agent cost estimate handler
 async function handleCostEstimate(req, res, sessionId, originalMessage, context) {
   try {
+    // ==================== NEW: USE TOOL FOR BETTER ESTIMATION ====================
+    let enhancedEstimation = null;
+    if (context.projectDetails.type && context.interactionCount > 2) {
+      try {
+        const toolResult = await toolSystem.useTool('COST_CALCULATOR', {
+          project_type: context.projectDetails.type,
+          area: context.projectDetails.area || 1000,
+          quality_level: 'standard'
+        }, context);
+        
+        if (toolResult.success) {
+          enhancedEstimation = toolResult.calculation;
+        }
+      } catch (toolError) {
+        console.log('🤖 Cost tool fallback to standard estimation');
+      }
+    }
+    // ============================================================================
+
     const promptConfig = {
       contents: [{
         parts: [{
-          text: `${costEstimationPrompt}\n\nClient is asking about construction costs: "${originalMessage}"\n\nProvide a professional, helpful cost estimate response (3-5 lines) using our actual project data. Sound like a construction expert, not an AI. Focus on practical cost guidance.\n\nResponse:`
+          text: `${costEstimationPrompt}\n\nClient is asking about construction costs: "${originalMessage}"\n\n${enhancedEstimation ? `Enhanced data available: ${JSON.stringify(enhancedEstimation)}\n\n` : ''}Provide a professional, helpful cost estimate response (3-5 lines) using our actual project data. Sound like a construction expert, not an AI. Focus on practical cost guidance.\n\nResponse:`
         }]
       }],
       generationConfig: {
@@ -717,9 +2123,16 @@ async function handleCostEstimate(req, res, sessionId, originalMessage, context)
       costResponse,
       ["Detailed Cost Analysis", "Schedule Expert Consultation", "Project Planning"],
       'cost_estimation',
-      null,
+      { 
+        costType: context.projectDetails.type,
+        enhanced: !!enhancedEstimation 
+      },
       sessionId
     );
+    
+    // ==================== NEW: LEARN FROM INTERACTION ====================
+    learningSystem.learnFromInteraction(sessionId, originalMessage, response, context);
+    // =====================================================================
     
     logConversation(sessionId, originalMessage, response, context);
     return res.json(response);
@@ -881,7 +2294,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
   const promptConfig = {
     contents: [{
       parts: [{
-        text: `${systemPrompt}\n\nCONVERSATION CONTEXT: ${contextPrompt}\n\nRespond as a knowledgeable construction consultant. Be helpful, professional, and maintain natural conversation flow.\n\nAI Consultant:`
+        text: `${systemPrompt}\n\nCONVERSATION CONTEXT: ${contextPrompt}\n\n${context.learningInsights ? `LEARNING INSIGHTS: ${JSON.stringify(context.learningInsights)}\n\n` : ''}Respond as a knowledgeable construction consultant. Be helpful, professional, and maintain natural conversation flow.\n\nAI Consultant:`
       }]
     }],
     generationConfig: {
@@ -898,13 +2311,29 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       getSmartFallbackResponse(userMessage, context)
     );
 
-    const response = formatResponse(
+    let response = formatResponse(
       aiResponse,
       getRelevantSuggestions(userMessage, context),
       'general_response',
       null,
       sessionId
     );
+    
+    // ==================== NEW: OPTIMIZE RESPONSE ====================
+    response = optimizeResponseBasedOnMetrics(sessionId, response, context);
+    // ================================================================
+    
+    // ==================== NEW: LEARN FROM INTERACTION ====================
+    learningSystem.learnFromInteraction(sessionId, message, response, context);
+    // =====================================================================
+    
+    // ==================== NEW: TRACK SUCCESS METRICS ====================
+    improvementSystem.trackSuccess(sessionId, {
+      type: 'general_query',
+      response: response.reply,
+      suggestions: response.suggestions
+    }, 'response_generated');
+    // ====================================================================
     
     logConversation(sessionId, message, response, context);
     return res.json(response);
@@ -1389,6 +2818,13 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
           
           meetingStates.delete(sessionId);
           
+          // ==================== NEW: TRACK SUCCESS ====================
+          improvementSystem.trackSuccess(sessionId, {
+            type: 'meeting_booking',
+            response: 'Meeting booked successfully'
+          }, 'booking_success');
+          // ============================================================
+          
           return res.json(formatResponse(
             `🎉 **Consultation Booked Successfully!**\n\n✅ Confirmation sent to ${meetingState.data.email}\n✅ Time secured with our ${meetingState.data.projectType} specialists\n✅ Our team will prepare for your project discussion\n\n**Meeting ID:** ${meetingState.data.id}\n**Date:** ${meetingState.data.date}\n**Time:** ${meetingState.data.time}\n\nWe look forward to helping bring your construction vision to life!`,
             ["Schedule another consultation", "Our construction services", "Project cost estimation"],
@@ -1592,6 +3028,147 @@ function getRelevantSuggestions(userMessage, context) {
   return ["Schedule Expert Consultation", "Our Construction Services", "Project Cost Estimation"];
 }
 
+// ==================== NEW ADMINISTRATIVE ENDPOINTS ====================
+
+// AI Agent learning insights endpoint
+router.get('/learning-insights/:sessionId?', (req, res) => {
+  const { sessionId } = req.params;
+  
+  if (sessionId) {
+    const insights = learningSystem.getLearningInsights(sessionId, 'general');
+    const preferences = clientPreferences.get(sessionId);
+    
+    res.json({
+      sessionId,
+      learningInsights: insights,
+      clientPreferences: preferences,
+      interactionCount: conversationContexts.get(sessionId)?.interactionCount || 0
+    });
+  } else {
+    res.json({
+      totalSessions: conversationContexts.size,
+      learningMemorySize: learningMemory.size,
+      clientPreferencesSize: clientPreferences.size,
+      improvementMetrics: improvementSystem.getImprovementMetrics()
+    });
+  }
+});
+
+// AI Agent goals endpoint
+router.get('/goals/:sessionId?', (req, res) => {
+  const { sessionId } = req.params;
+  
+  if (sessionId) {
+    const goal = goalArchitecture.activeGoals.get(sessionId);
+    const progress = goalArchitecture.getGoalProgress(sessionId);
+    
+    res.json({
+      sessionId,
+      activeGoal: goal,
+      progress,
+      context: conversationContexts.get(sessionId)?.state
+    });
+  } else {
+    res.json({
+      activeGoals: goalArchitecture.activeGoals.size,
+      goalTemplates: Object.keys(goalArchitecture.goalTemplates)
+    });
+  }
+});
+
+// AI Agent decision metrics endpoint
+router.get('/decisions/:sessionId?', (req, res) => {
+  const { sessionId } = req.params;
+  
+  if (sessionId) {
+    const decisions = decisionEngine.decisionLog.get(sessionId);
+    res.json({
+      sessionId,
+      decisions: decisions?.decisions || [],
+      autonomousActions: conversationContexts.get(sessionId)?.autonomousActions || 0
+    });
+  } else {
+    res.json({
+      totalDecisions: Array.from(decisionEngine.decisionLog.values())
+        .reduce((sum, log) => sum + (log.decisions?.length || 0), 0),
+      activeSessionsWithDecisions: decisionEngine.decisionLog.size
+    });
+  }
+});
+
+// AI Agent optimization endpoint
+router.get('/optimization', (req, res) => {
+  res.json({
+    improvementMetrics: improvementSystem.getImprovementMetrics(),
+    optimizationHistory: improvementSystem.optimizationHistory.slice(-10),
+    strategyAdjustments: improvementSystem.adaptConversationStrategy('system', {})
+  });
+});
+
+// AI Agent tool usage endpoint
+router.get('/tool-usage/:sessionId?', (req, res) => {
+  const { sessionId } = req.params;
+  
+  if (sessionId) {
+    const context = conversationContexts.get(sessionId);
+    res.json({
+      sessionId,
+      toolUsage: context?.toolUsage || [],
+      availableTools: Object.keys(toolSystem.availableTools)
+    });
+  } else {
+    res.json({
+      availableTools: Object.keys(toolSystem.availableTools),
+      toolDescriptions: Object.entries(toolSystem.availableTools).map(([name, tool]) => ({
+        name,
+        description: tool.description
+      }))
+    });
+  }
+});
+
+// AI Agent reset learning endpoint
+router.post('/reset-learning/:type', async (req, res) => {
+  const { type } = req.params;
+  
+  try {
+    switch(type) {
+      case 'memory':
+        learningMemory.clear();
+        await learningSystem.saveMemory();
+        break;
+      case 'preferences':
+        clientPreferences.clear();
+        await learningSystem.saveMemory();
+        break;
+      case 'goals':
+        goalArchitecture.activeGoals.clear();
+        goalStates.clear();
+        break;
+      case 'all':
+        learningMemory.clear();
+        clientPreferences.clear();
+        goalArchitecture.activeGoals.clear();
+        goalStates.clear();
+        decisionEngine.decisionLog.clear();
+        improvementSystem.successMetrics.clear();
+        improvementSystem.optimizationHistory = [];
+        await learningSystem.saveMemory();
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid reset type' });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `${type} reset successfully`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== AI AGENT MAINTENANCE ====================
 
 // Session cleanup interval
@@ -1603,20 +3180,17 @@ setInterval(() => {
   for (const [sessionId, context] of conversationContexts.entries()) {
     if (now - new Date(context.lastInteraction).getTime() > twentyFourHours) {
       conversationContexts.delete(sessionId);
-      cleanedCount++;
-    }
-  }
-  
-  // Clean up old meeting states
-  for (const [sessionId, meetingState] of meetingStates.entries()) {
-    if (now - new Date(meetingState.createdAt || now).getTime() > twentyFourHours) {
       meetingStates.delete(sessionId);
+      goalArchitecture.activeGoals.delete(sessionId);
       cleanedCount++;
     }
   }
   
   if (cleanedCount > 0) {
     console.log(`🤖 AI Agent cleaned up ${cleanedCount} old sessions`);
+    
+    // Save learning memory after cleanup
+    learningSystem.saveMemory();
   }
 }, 60 * 60 * 1000);
 
@@ -1650,7 +3224,23 @@ router.get('/health', (req, res) => {
     expertise: `${knowledge.projectPortfolio.totalCompleted} projects experience`,
     memoryUsage: process.memoryUsage(),
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    // ==================== NEW HEALTH METRICS ====================
+    learningSystem: {
+      memorySize: learningMemory.size,
+      preferencesSize: clientPreferences.size
+    },
+    goalSystem: {
+      activeGoals: goalArchitecture.activeGoals.size
+    },
+    decisionSystem: {
+      sessionsWithDecisions: decisionEngine.decisionLog.size
+    },
+    improvementSystem: improvementSystem.getImprovementMetrics(),
+    toolSystem: {
+      availableTools: Object.keys(toolSystem.availableTools).length
+    }
+    // ============================================================
   });
 });
 
@@ -1662,7 +3252,24 @@ router.get('/stats', (req, res) => {
     activeConsultations: meetingStates.size,
     rateLimitStats: Object.fromEntries(requestCounts.entries()),
     expertise: `${knowledge.projectPortfolio.totalCompleted} projects`,
-    serverTime: new Date().toISOString()
+    serverTime: new Date().toISOString(),
+    // ==================== NEW STATS ====================
+    autonomousCapabilities: {
+      learningEnabled: true,
+      goalOriented: true,
+      proactiveBehavior: true,
+      toolIntegration: true,
+      selfImprovement: true
+    },
+    performanceMetrics: {
+      avgInteractionsPerSession: Array.from(conversationContexts.values())
+        .reduce((sum, ctx) => sum + ctx.interactionCount, 0) / Math.max(conversationContexts.size, 1),
+      goalCompletionRate: Array.from(goalArchitecture.activeGoals.values())
+        .filter(g => g.completed).length / Math.max(goalArchitecture.activeGoals.size, 1),
+      autonomousActionRate: Array.from(conversationContexts.values())
+        .reduce((sum, ctx) => sum + (ctx.autonomousActions || 0), 0) / Math.max(conversationContexts.size, 1)
+    }
+    // ==================================================
   });
 });
 

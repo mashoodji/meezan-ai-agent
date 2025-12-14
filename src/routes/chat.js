@@ -1436,30 +1436,30 @@ router.post('/chat', async (req, res) => {
       }
     }
 
-    // Check for website redirection
-    const redirectInfo = handleWebsiteRedirect(userMessage);
-    if (redirectInfo) {
-      console.log('🤖 AI Agent redirecting to:', redirectInfo.page, redirectInfo.url);
+    // Check for website redirection - DISABLED TO ALLOW AGENT REASONING
+    // const redirectInfo = handleWebsiteRedirect(userMessage);
+    // if (redirectInfo) {
+    console.log('🤖 AI Agent redirecting to:', redirectInfo.page, redirectInfo.url);
 
-      const response = formatResponse(
-        redirectInfo.message,
-        ["Continue Chat", "Schedule Consultation", "Cost Estimation"],
-        redirectInfo.action,
-        {
-          redirectUrl: redirectInfo.url,
-          page: redirectInfo.page
-        },
-        sessionId
-      );
+    const response = formatResponse(
+      redirectInfo.message,
+      ["Continue Chat", "Schedule Consultation", "Cost Estimation"],
+      redirectInfo.action,
+      {
+        redirectUrl: redirectInfo.url,
+        page: redirectInfo.page
+      },
+      sessionId
+    );
 
-      improvementSystem.trackSuccess(sessionId, {
-        type: 'website_redirect',
-        response: response.reply
-      }, 'redirect_success');
+    improvementSystem.trackSuccess(sessionId, {
+      type: 'website_redirect',
+      response: response.reply
+    }, 'redirect_success');
 
-      logConversation(sessionId, message, response, context);
-      return res.json(response);
-    }
+    logConversation(sessionId, message, response, context);
+    //   return res.json(response);
+    // }
 
     // Check if user is in the middle of meeting booking
     const meetingState = meetingStates.get(sessionId);
@@ -2920,6 +2920,126 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
   } catch (error) {
     console.error('❌ Gemini API Error:', error.response?.data || error.message);
     return fallbackResponse;
+  }
+}
+
+// ==================== NEW: REASONING & AUTONOMY AGENT HANDLER ====================
+async function handleGeneralQuery(req, res, sessionId, message, userMessage, context) {
+  // 1. REASONING STEP: PLAN
+  console.log('🤖 AI Agent Thinking about:', message);
+
+  const reasoningPrompt = {
+    contents: [{
+      parts: [{
+        text: `You are the brain of the Meezan AI Construction Consultant.
+        Goal: Analyze the user's request and decide the best course of action.
+        
+        Available Tools:
+        - MARKET_RESEARCH: For questions about trends, prices, or "is this a good time to build?".
+        - COST_CALCULATOR: For specific cost estimates ("how much for 5 marla?").
+        - WEATHER_CHECK: For timeline/weather questions.
+        - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
+
+        User Request: "${message}"
+
+        Return ONLY a JSON object: { "action": "TOOL_NAME_OR_DIRECT_RESPONSE", "reason": "Why?", "toolParams": { ... } }`
+      }]
+    }]
+  };
+
+  try {
+    const rawPlan = await callGeminiAPI(reasoningPrompt, '{ "action": "DIRECT_RESPONSE" }');
+    // Sanitize JSON (Gemini sometimes adds markdown backticks)
+    const jsonPlan = rawPlan.replace(/```json/g, '').replace(/```/g, '').trim();
+    const plan = JSON.parse(jsonPlan);
+
+    console.log('🧠 AI Plan:', plan);
+
+    let finalResponseText = "";
+    let toolResult = null;
+    let generatedSuggestions = null;
+
+    // 2. ACTION STEP: EXECUTE TOOL (If needed)
+    if (plan.action !== 'DIRECT_RESPONSE' && toolSystem.availableTools[plan.action]) {
+      console.log(`🛠️ Executing Tool: ${plan.action}`);
+      toolResult = await toolSystem.useTool(plan.action, plan.toolParams || {}, context);
+
+      // 3. SYNTHESIS STEP: GENERATE RESPONSE WITH DATA
+      const synthesisPrompt = {
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}
+              
+              USER QUESTION: "${message}"
+              
+              TOOL_USED: ${plan.action}
+              TOOL_RESULT: ${JSON.stringify(toolResult)}
+              
+              Task: Provide a helpful, professional response including the tool data.
+              
+              IMPORTANT: Return a JSON object ONLY. No markdown formatting.
+              Format:
+              {
+                "reply": "Your friendly, expert response text here.",
+                "suggestions": ["Short Suggestion 1", "Short Suggestion 2", "Short Suggestion 3"]
+              }`
+          }]
+        }]
+      };
+      const rawResponse = await callGeminiAPI(synthesisPrompt, '{ "reply": "I have the data but no text.", "suggestions": [] }');
+      try {
+        const jsonResponse = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
+        finalResponseText = jsonResponse.reply;
+        generatedSuggestions = jsonResponse.suggestions;
+      } catch (e) {
+        finalResponseText = rawResponse;
+      }
+
+    } else {
+      // Direct response - FORCE DYNAMIC SUGGESTIONS
+      const directPrompt = {
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}
+            
+            User: "${message}"
+            
+            Task: meaningful response + 3 relevant short suggestions.
+            Return JSON ONLY: { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
+        }]
+      };
+      const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));
+
+      try {
+        const jsonResponse = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
+        finalResponseText = jsonResponse.reply;
+        generatedSuggestions = jsonResponse.suggestions;
+      } catch (e) {
+        finalResponseText = rawResponse; // Fallback if not JSON
+      }
+    }
+
+    // 4. RESPONSE FORMATTING
+    const response = formatResponse(
+      finalResponseText,
+      generatedSuggestions || getRelevantSuggestions(userMessage, context),
+      'agent_reasoning_response',
+      { plan: plan, toolResult: toolResult },
+      sessionId
+    );
+
+    // Learning & Metrics
+    learningSystem.learnFromInteraction(sessionId, message, response.reply, context);
+    improvementSystem.trackSuccess(sessionId, { type: 'agent_interaction', response: response.reply }, 'success');
+
+    logConversation(sessionId, message, response, context);
+    return res.json(response);
+
+  } catch (error) {
+    console.error('❌ Reasoning Loop Error:', error);
+    // Fallback to old handler logic if reasoning fails
+    const fallback = getSmartFallbackResponse(userMessage, context);
+    return res.json(formatResponse(fallback, [], 'fallback_error', null, sessionId));
   }
 }
 

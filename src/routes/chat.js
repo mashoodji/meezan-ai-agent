@@ -2981,6 +2981,34 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
 
 // ==================== NEW: REASONING & AUTONOMY AGENT HANDLER ====================
 async function handleGeneralQuery(req, res, sessionId, message, userMessage, context) {
+  // Knowledge Injection
+  const knowledgeSummary = `
+  COMPANY PROFILE:
+  Name: ${knowledge.company.name}
+  Experience: ${knowledge.company.yearsExperience} (${knowledge.company.stats.projectsCompleted} Projects, ${knowledge.company.stats.clientSatisfaction} Satisfaction)
+  Tagline: "${knowledge.companyInfo.meaning}"
+  Address: ${knowledge.company.contact.address}
+  Contact: ${knowledge.company.contact.phone} | ${knowledge.company.contact.whatsapp} | ${knowledge.company.contact.email}
+  Business Hours: ${knowledge.company.contact.businessHours}
+
+  SERVICES & EXPERTISE:
+  ${knowledge.services.map(s => `- ${s.name}: ${s.description} (Timeline: ${s.averageTimeline})`).join('\n')}
+
+  CONSTRUCTION COSTS (Estimates):
+  - Residential: Grey Structure (${knowledge.constructionCosts.residential.greyStructure}), Finished (${knowledge.constructionCosts.residential.finished}), Luxury (${knowledge.constructionCosts.residential.luxury})
+  - Commercial: Standard (${knowledge.constructionCosts.commercial.standard}), Premium (${knowledge.constructionCosts.commercial.premium})
+  - Factors: ${knowledge.constructionCosts.costFactors.join(', ')}
+
+  OUR PROCESS:
+  ${Object.entries(knowledge.process).map(([step, desc]) => `${step}: ${desc}`).join('\n')}
+
+  FREQUENTLY ASKED QUESTIONS:
+  ${knowledge.faqs.map(f => `Q: ${f.question} A: ${f.answer}`).join('\n')}
+
+  LEADERSHIP TEAM:
+  ${knowledge.team.leadership.map(l => `- ${l.name} (${l.role}): ${l.experience}`).join('\n')}
+  `;
+
   // 1. REASONING STEP: PLAN
   console.log('🤖 AI Agent Thinking about:', message);
 
@@ -2988,6 +3016,10 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
     contents: [{
       parts: [{
         text: `You are the brain of the Meezan AI Construction Consultant.
+        
+        KNOWLEDGE BASE:
+        ${knowledgeSummary}
+
         Goal: Analyze the user's request and decide the best course of action.
         
         Available Tools:
@@ -2997,7 +3029,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
         - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
         - BOOK_MEETING: For requests to meet, consult, or schedule a call.
         - GET_PORTFOLIO: For requests to see past work, examples, or designs.
-        - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
+        - DIRECT_RESPONSE: For general info (location, about us, contact) or if no tool is needed.
 
         User Request: "${message}"
 
@@ -3032,7 +3064,10 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const synthesisPrompt = {
         contents: [{
           parts: [{
-            text: `You are a helpful AI consultant for Meezan Developers (17+ years, 263+ projects).
+            text: `You are a helpful AI consultant for Meezan Developers.
+              
+              KNOWLEDGE BASE:
+              ${knowledgeSummary}
               
               USER QUESTION: "${message}"
               TOOL_USED: ${plan.action}
@@ -3067,11 +3102,14 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const directPrompt = {
         contents: [{
           parts: [{
-            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
+            text: `You are an expert AI consultant for Meezan Developers.
+            
+            KNOWLEDGE BASE:
+            ${knowledgeSummary}
             
             User: "${message}"
             
-            Task: Provide a short, friendly, and conversational response (max 2 sentences).
+            Task: Provide a short, friendly, and conversational response (max 2 sentences) using the Knowledge Base.
             Rules:
             - NO corporate fluff or long intros
             - Be direct and helpful
@@ -3118,5 +3156,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
     return res.json(formatResponse(fallback, [], 'fallback_error', null, sessionId));
   }
 }
+
+
 
 module.exports = router;

@@ -14,47 +14,47 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, server-side calls)
     if (!origin) return callback(null, true);
-    
+
     // Development: Allow all origins
     if (process.env.NODE_ENV !== 'production') {
       console.log('🔓 Development CORS - Allowing origin:', origin);
       return callback(null, true);
     }
-    
+
     // Production: Allow specific domains
     const productionAllowedOrigins = [
       'https://meezandevelopers.com',
       'https://www.meezandevelopers.com',
       'http://meezandevelopers.com',
       'http://www.meezandevelopers.com',
-      
+
       // Localhost
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3001',
-      
+
       // Local networks
       'http://192.168.0.0',
-      'http://192.168.1.0', 
+      'http://192.168.1.0',
       'http://192.168.100.0',
       'http://10.0.0.0',
       'http://172.16.0.0',
-      
+
       // Render frontend
       'https://meezan-ai-agent.onrender.com'
     ];
-    
+
     const isAllowed = productionAllowedOrigins.some(allowed => {
       if (origin === allowed) return true;
       if (allowed.includes('192.168.') && origin.startsWith('http://192.168.')) return true;
       if (allowed.includes('10.0.') && origin.startsWith('http://10.')) return true;
       if (allowed.includes('172.16.') && origin.startsWith('http://172.')) return true;
       if (allowed.includes('meezandevelopers.com') && origin.includes('meezandevelopers.com')) return true;
-      
+
       return false;
     });
-    
+
     if (isAllowed) {
       console.log('✅ Production CORS - Allowed origin:', origin);
       return callback(null, true);
@@ -67,8 +67,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',
@@ -98,7 +98,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
+
   if (req.headers.origin) {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   }
@@ -106,7 +106,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-API-Key');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400');
-  
+
   next();
 });
 
@@ -159,7 +159,7 @@ app.get('/health', (req, res) => {
       'Goal-Oriented Assistance'
     ]
   };
-  
+
   res.json(healthData);
 });
 
@@ -260,7 +260,7 @@ app.get('/api/debug-email', async (req, res) => {
     }
 
     const resendEmailService = require('./services/resendEmailService');
-    
+
     const testData = {
       name: "Test User",
       email: process.env.COMPANY_EMAIL || 'meezandevelopers.official@gmail.com',
@@ -269,9 +269,9 @@ app.get('/api/debug-email', async (req, res) => {
       time: new Date().toLocaleTimeString(),
       id: "TEST_" + Date.now()
     };
-    
+
     const result = await resendEmailService.sendMeetingConfirmation(testData);
-    
+
     res.json({
       success: result.success,
       environment: envCheck,
@@ -283,7 +283,7 @@ app.get('/api/debug-email', async (req, res) => {
         company: result.companyMessageId
       } : null
     });
-    
+
   } catch (error) {
     console.error('❌ Email debug endpoint error:', error);
     res.status(500).json({
@@ -301,11 +301,11 @@ app.get('/api/debug-email', async (req, res) => {
 app.get('/api/debug-calendar', async (req, res) => {
   try {
     const calendarService = require('./services/calendarService');
-    
+
     const availableDates = calendarService.generateAvailableDates();
     const bookedSlots = calendarService.getBookedSlots();
     const nextAvailable = calendarService.getNextAvailableSlots(5);
-    
+
     res.json({
       success: true,
       service: 'Calendar Service - Operational',
@@ -315,7 +315,7 @@ app.get('/api/debug-calendar', async (req, res) => {
       total_booked: bookedSlots.length,
       note: 'Calendar service is managing availability correctly'
     });
-    
+
   } catch (error) {
     console.error('❌ Calendar debug error:', error);
     res.status(500).json({
@@ -329,26 +329,26 @@ app.get('/api/debug-calendar', async (req, res) => {
 // Helper functions
 function getNetworkType(originOrIp) {
   if (!originOrIp) return 'direct';
-  
+
   const str = originOrIp.toString();
-  
+
   if (str.includes('localhost') || str.includes('127.0.0.1')) return 'localhost';
   if (str.includes('192.168.')) return 'local_network';
   if (str.includes('10.')) return 'private_network';
-  if (str.includes('172.16.') || str.includes('172.17.') || str.includes('172.18.') || str.includes('172.19.') || 
-      str.includes('172.20.') || str.includes('172.21.') || str.includes('172.22.') || str.includes('172.23.') ||
-      str.includes('172.24.') || str.includes('172.25.') || str.includes('172.26.') || str.includes('172.27.') ||
-      str.includes('172.28.') || str.includes('172.29.') || str.includes('172.30.') || str.includes('172.31.')) {
+  if (str.includes('172.16.') || str.includes('172.17.') || str.includes('172.18.') || str.includes('172.19.') ||
+    str.includes('172.20.') || str.includes('172.21.') || str.includes('172.22.') || str.includes('172.23.') ||
+    str.includes('172.24.') || str.includes('172.25.') || str.includes('172.26.') || str.includes('172.27.') ||
+    str.includes('172.28.') || str.includes('172.29.') || str.includes('172.30.') || str.includes('172.31.')) {
     return 'private_network';
   }
   if (str.includes('meezandevelopers.com')) return 'production_domain';
-  
+
   return 'public_network';
 }
 
 function getLocationDescription(origin, ip) {
   const networkType = getNetworkType(origin || ip);
-  
+
   switch (networkType) {
     case 'localhost': return 'Local machine development';
     case 'local_network': return 'Local area network (home/office)';
@@ -374,13 +374,14 @@ console.log('🔧 Initializing Keep-Alive Service...');
 
 function startKeepAlive() {
   const keepAliveUrl = process.env.RENDER_URL || 'https://meezan-ai-agent.onrender.com';
-  
+
   console.log('🔄 Keep-alive service configured for:', keepAliveUrl);
-  
+  console.log('ℹ️  NOTE: Set RENDER_URL env var if your Render app name is different.');
+
   const pingInterval = setInterval(async () => {
     try {
       const response = await fetch(`${keepAliveUrl}/health`);
-      
+
       if (response.ok) {
         console.log('🔄 Keep-alive ping successful:', new Date().toLocaleTimeString());
       } else {
@@ -398,12 +399,12 @@ function startKeepAlive() {
 if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
   setTimeout(() => {
     const keepAliveInterval = startKeepAlive();
-    
+
     process.on('SIGTERM', () => {
       console.log('🛑 Cleaning up keep-alive service...');
       clearInterval(keepAliveInterval);
     });
-    
+
     process.on('SIGINT', () => {
       console.log('🛑 Cleaning up keep-alive service...');
       clearInterval(keepAliveInterval);
@@ -446,7 +447,7 @@ app.use((error, req, res, next) => {
     origin: req.headers.origin,
     timestamp: new Date().toISOString()
   });
-  
+
   res.status(500).json({
     success: false,
     message: 'Internal server error - Meezan AI Agent',

@@ -18,9 +18,11 @@ async function testReActLoop() {
           - COST_CALCULATOR: For specific cost estimates ("how much for 5 marla?").
           - WEATHER_CHECK: For timeline/weather questions.
           - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
+          - BOOK_MEETING: For requests to meet, consult, or schedule a call.
+          - GET_PORTFOLIO: For requests to see past work, examples, or designs.
           - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
 
-          User Request: "Can you offer your services in Lahore?"
+          User Request: "Book a meeting"
 
           Return ONLY a JSON object: { "action": "TOOL_NAME_OR_DIRECT_RESPONSE", "reason": "Why?", "toolParams": { "location": "City Name" } }`
                 }]

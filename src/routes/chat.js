@@ -3029,18 +3029,12 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const directPrompt = {
         contents: [{
           parts: [{
-            text: `You are a helpful AI for Meezan Developers (17+ years, 263+ projects).
+            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
             
             User: "${message}"
             
-            Task: Give a BRIEF, friendly answer (2-3 sentences max) and 3 short action suggestions.
-            
-            RULES:
-            - Keep response SHORT and conversational
-            - Sound human, not corporate
-            - NO long paragraphs
-            
-            Return JSON ONLY: { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
+            Task: Provide a helpful, professional response and 3 relevant action suggestions.
+            Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };
       const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));

@@ -2969,9 +2969,14 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
 
   try {
     const rawPlan = await callGeminiAPI(reasoningPrompt, '{ "action": "DIRECT_RESPONSE" }');
+    console.log('📥 Raw Gemini Response:', rawPlan);
+
     // Sanitize JSON (Gemini sometimes adds markdown backticks)
     const jsonPlan = rawPlan.replace(/```json/g, '').replace(/```/g, '').trim();
+    console.log('🧹 Sanitized JSON:', jsonPlan);
+
     const plan = JSON.parse(jsonPlan);
+
 
     console.log('🧠 AI Plan:', plan);
 

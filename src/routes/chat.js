@@ -712,6 +712,12 @@ class ToolUsageSystem {
         description: 'Check weather impact on construction schedule',
         endpoint: 'WEATHER_API_URL',
         requires: ['location', 'timeline']
+      },
+      CHECK_SERVICE_AREA: {
+        name: 'Check Service Area',
+        description: 'Verify if service is available in a specific city',
+        endpoint: null,
+        requires: ['location']
       }
     };
   }
@@ -2999,17 +3005,16 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
               TOOL_USED: ${plan.action}
               TOOL_RESULT: ${JSON.stringify(toolResult)}
               
-              Task: Write a BRIEF, friendly response (2-3 sentences max) using the tool data. Be conversational and clear.
+              Task: Write a VERY SHORT, friendly response (1-2 sentences) using the tool data.
               
               RULES:
-              - Keep it SHORT and easy to read
-              - Use the actual numbers/data from the tool result
-              - Sound human, not robotic
-              - NO long paragraphs
+              - NO distinct greeting/intro like "Thank you for reaching out"
+              - Get straight to the point
+              - Use natural language
               
               Return JSON ONLY:
               {
-                "reply": "Short, friendly response with tool data (2-3 sentences)",
+                "reply": "Short, friendly response (1-2 sentences)",
                 "suggestions": ["Action 1", "Action 2", "Action 3"]
               }`
           }]
@@ -3033,7 +3038,12 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
             
             User: "${message}"
             
-            Task: Provide a helpful, professional response and 3 relevant action suggestions.
+            Task: Provide a short, friendly, and conversational response (max 2 sentences).
+            Rules:
+            - NO corporate fluff or long intros
+            - Be direct and helpful
+            - Use emojis if appropriate
+            
             Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };

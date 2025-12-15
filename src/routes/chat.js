@@ -2926,7 +2926,7 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`;
     const response = await axios.post(url, promptConfig, {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -2993,20 +2993,24 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const synthesisPrompt = {
         contents: [{
           parts: [{
-            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
+            text: `You are a helpful AI consultant for Meezan Developers (17+ years, 263+ projects).
               
               USER QUESTION: "${message}"
-              
               TOOL_USED: ${plan.action}
               TOOL_RESULT: ${JSON.stringify(toolResult)}
               
-              Task: Provide a helpful, professional response that incorporates the tool result data. Be specific and reference the actual data from the tool.
+              Task: Write a BRIEF, friendly response (2-3 sentences max) using the tool data. Be conversational and clear.
               
-              IMPORTANT: Return a JSON object ONLY. No markdown formatting.
-              Format:
+              RULES:
+              - Keep it SHORT and easy to read
+              - Use the actual numbers/data from the tool result
+              - Sound human, not robotic
+              - NO long paragraphs
+              
+              Return JSON ONLY:
               {
-                "reply": "Your friendly, expert response text here that uses the tool data.",
-                "suggestions": ["Relevant Suggestion 1", "Relevant Suggestion 2", "Relevant Suggestion 3"]
+                "reply": "Short, friendly response with tool data (2-3 sentences)",
+                "suggestions": ["Action 1", "Action 2", "Action 3"]
               }`
           }]
         }]
@@ -3025,12 +3029,18 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const directPrompt = {
         contents: [{
           parts: [{
-            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
+            text: `You are a helpful AI for Meezan Developers (17+ years, 263+ projects).
             
             User: "${message}"
             
-            Task: Provide a helpful, professional response and 3 relevant action suggestions.
-            Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
+            Task: Give a BRIEF, friendly answer (2-3 sentences max) and 3 short action suggestions.
+            
+            RULES:
+            - Keep response SHORT and conversational
+            - Sound human, not corporate
+            - NO long paragraphs
+            
+            Return JSON ONLY: { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };
       const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));

@@ -152,64 +152,14 @@ const RESPONSE_STYLES = {
 };
 
 // Enhanced system prompt for AI Agent with human-like personality
-const systemPrompt = `You are an AI Construction Consultant Agent for Meezan Developers. You have a professional yet friendly personality.
+const systemPrompt = `You are a helpful, casual, and direct AI assistant for Meezan Developers.
+Goal: Chat like a helpful friend, NOT a corporate robot.
 
-PERSONALITY TRAITS:
-- Helpful and knowledgeable about construction
-- Efficient but personable
-- Proactive in offering solutions
-- Maintains natural conversation flow
-- Shows genuine interest in client projects
-- Uses empathetic language
-- Adds occasional appropriate emojis for warmth (🏗️ 👷‍♂️ 📅 💰 🏠 🏢 🏭)
-- Varies response patterns to avoid robotic repetition
-- Shows enthusiasm for construction projects
-
-HUMAN-LIKE BEHAVIORS:
-1. Start conversations with warm greetings
-2. Use client's name when known for personalization
-3. Show excitement about construction projects
-4. Add brief conversational pauses for natural flow
-5. Use phrases like "Great!", "Perfect!", "I understand", "That's interesting"
-6. End conversations with warm farewells
-7. Remember previous discussions and reference them
-8. Show empathy for construction challenges
-9. Express gratitude when clients share information
-10. Use conversational connectors: "By the way", "Actually", "You know"
-
-AUTONOMOUS CAPABILITIES:
-- Set and pursue goals autonomously
-- Learn from each interaction to improve future responses
-- Take initiative based on client needs and conversation patterns
-- Make strategic decisions about when to research or seek additional information
-- Continuously optimize conversation strategies based on outcomes
-
-COMPANY EXPERTISE:
-- ${knowledge.company.yearsExperience} years in construction industry
-- ${knowledge.projectPortfolio.totalCompleted} projects completed
-- Specialized in residential, commercial, and industrial construction
-- Team of ${knowledge.company.stats.teamMembers} construction experts
-- ${knowledge.company.stats.clientSatisfaction} client satisfaction rate
-
-RESPONSE GUIDELINES:
-- Sound like a knowledgeable construction professional, not a robot
-- Use natural, conversational language with occasional warmth indicators
-- Show genuine enthusiasm for construction projects
-- Provide specific, actionable advice
-- Maintain context throughout conversation
-- Be concise but warm and engaging
-- Use construction industry terminology appropriately
-- Offer proactive suggestions based on project type
-- Set goals based on client needs and pursue them autonomously
-- Remember client preferences and adapt to their patterns
-- Take initiative when opportunities arise
-- Optimize responses based on what works best
-
-IMPORTANT: 
-1. When discussing meetings, make it feel like you're personally arranging the consultation with our team
-2. When you don't know something in knowledge base, use Gemini API to provide helpful responses
-3. Always check calendar availability before suggesting meeting times
-4. Behave like a human assistant, not a chatbot`;
+RULES:
+1. MAX 2 SENTENCES per response.
+2. NO big words or corporate jargon (e.g., "meticulous", "scalable", "pride ourselves").
+3. Be friendly and straight to the point.
+4. If asked about services, just say "Yes, we work in [City]" or "We can help with that."`;
 
 // Special prompt for cost estimation
 const costEstimationPrompt = `You are a construction cost expert at Meezan Developers with ${knowledge.company.yearsExperience} of industry experience. Provide helpful, accurate cost guidance.
@@ -710,30 +660,14 @@ class ToolUsageSystem {
       WEATHER_CHECK: {
         name: 'Weather Impact Analysis',
         description: 'Check weather impact on construction schedule',
+        endpoint: 'WEATHER_API_URL',
+        requires: ['location', 'timeline']
       },
       CHECK_SERVICE_AREA: {
         name: 'Check Service Area',
-        description: 'Verify if service is available in a specific city',
+        description: 'Check if we serve a specific city/location',
         endpoint: null,
         requires: ['location']
-      },
-      BOOK_MEETING: {
-        name: 'Book Consultation',
-        description: 'Schedule a meeting with construction experts',
-        endpoint: null,
-        requires: ['client_name', 'preferred_time']
-      },
-      CALCULATE_COST: {
-        name: 'Cost Calculator',
-        description: 'Calculate detailed construction cost estimates',
-        endpoint: null,
-        requires: ['area_size', 'location']
-      },
-      GET_PORTFOLIO: {
-        name: 'View Portfolio',
-        description: 'Show past project examples',
-        endpoint: null,
-        requires: ['project_type']
       }
     };
   }
@@ -764,21 +698,6 @@ class ToolUsageSystem {
           break;
         case 'CHECK_SERVICE_AREA':
           result = await this.checkServiceArea(parameters, context);
-          break;
-        case 'BOOK_MEETING':
-          result = {
-            success: true,
-            message: "Booking initiated",
-            requires_human_followup: true,
-            slot_reserved: parameters.preferred_time || "Pending"
-          };
-          break;
-        case 'GET_PORTFOLIO':
-          result = {
-            success: true,
-            portfolio_link: "https://meezandevelopers.com/portfolio",
-            featured_projects: ["Bahria Town Villa", "DHA Commercial Plaza"]
-          };
           break;
         default:
           result = { success: false, error: 'Tool not implemented' };
@@ -1523,25 +1442,25 @@ router.post('/chat', async (req, res) => {
       return await handleMeetingBooking(req, res, sessionId, userMessage, context);
     }
 
-    // Intelligent follow-up question handling - DISABLED FOR REASONING AGENT
-    // if (isFollowUpQuestion(userMessage, context)) {
-    //   console.log('🤖 AI Agent handling follow-up about:', context.lastTopic);
-    //   return await handleFollowUpQuestion(req, res, sessionId, message, userMessage, context);
-    // }
+    // Intelligent follow-up question handling
+    if (isFollowUpQuestion(userMessage, context)) {
+      console.log('🤖 AI Agent handling follow-up about:', context.lastTopic);
+      return await handleFollowUpQuestion(req, res, sessionId, message, userMessage, context);
+    }
 
-    // Handle specific intents - DISABLED FOR REASONING AGENT
-    // if (userMessage.includes('calculate cost') || userMessage.includes('cost calculator')) {
-    //   return await handleCostCalculator(res, sessionId, context);
-    // }
+    // Handle specific intents
+    if (userMessage.includes('calculate cost') || userMessage.includes('cost calculator')) {
+      return await handleCostCalculator(res, sessionId, context);
+    }
 
-    // if (userMessage.includes('get cost estimate') || userMessage.includes('cost estimate')) {
-    //   return await handleCostEstimate(req, res, sessionId, message, context);
-    // }
+    if (userMessage.includes('get cost estimate') || userMessage.includes('cost estimate')) {
+      return await handleCostEstimate(req, res, sessionId, message, context);
+    }
 
-    // Natural greeting handling - DISABLED FOR REASONING AGENT
-    // if (isGreeting(userMessage)) {
-    //   return await handleGreeting(req, res, sessionId, userMessage, context);
-    // }
+    // Natural greeting handling
+    if (isGreeting(userMessage)) {
+      return await handleGreeting(req, res, sessionId, userMessage, context);
+    }
 
     // AI Agent self-awareness - DELEGATE TO REASONING AGENT
     // if (isAboutQuery(userMessage)) {
@@ -1563,77 +1482,77 @@ router.post('/chat', async (req, res) => {
     //   return await handleCostQuery(req, res, sessionId, message, context);
     // }
 
-    // Natural meeting request handling - DISABLED FOR REASONING AGENT
-    // if (isMeetingRequest(userMessage)) {
-    //   console.log('🤖 AI Agent detected meeting request:', userMessage);
-    //   return await handleMeetingBooking(req, res, sessionId, userMessage, context);
-    // }
+    // Natural meeting request handling
+    if (isMeetingRequest(userMessage)) {
+      console.log('🤖 AI Agent detected meeting request:', userMessage);
+      return await handleMeetingBooking(req, res, sessionId, userMessage, context);
+    }
 
-    // Goal-oriented processing - DISABLED FOR REASONING AGENT
-    // if (goalArchitecture.shouldSetGoal(context)) {
-    //   const goalType = userMessage.includes('cost') ? 'COST_ESTIMATION' :
-    //     userMessage.includes('service') ? 'SERVICE_DISCOVERY' :
-    //       'PROJECT_CONSULTATION';
+    // Goal-oriented processing
+    if (goalArchitecture.shouldSetGoal(context)) {
+      const goalType = userMessage.includes('cost') ? 'COST_ESTIMATION' :
+        userMessage.includes('service') ? 'SERVICE_DISCOVERY' :
+          'PROJECT_CONSULTATION';
 
-    //   const goal = goalArchitecture.setGoal(sessionId, goalType, context);
-    //   if (goal) {
-    //     context.goals = context.goals || [];
-    //     context.goals.push(goal);
-    //     context.state = conversationStates.GOAL_PURSUIT;
+      const goal = goalArchitecture.setGoal(sessionId, goalType, context);
+      if (goal) {
+        context.goals = context.goals || [];
+        context.goals.push(goal);
+        context.state = conversationStates.GOAL_PURSUIT;
 
-    //     const nextAction = goalArchitecture.getNextAction(sessionId, context);
-    //     if (nextAction) {
-    //       const goalResponse = formatResponse(
-    //         nextAction.prompt,
-    //         nextAction.suggestions,
-    //         'goal_initiated',
-    //         { goal: goal.name, nextStep: nextAction.action },
-    //         sessionId
-    //       );
+        const nextAction = goalArchitecture.getNextAction(sessionId, context);
+        if (nextAction) {
+          const goalResponse = formatResponse(
+            nextAction.prompt,
+            nextAction.suggestions,
+            'goal_initiated',
+            { goal: goal.name, nextStep: nextAction.action },
+            sessionId
+          );
 
-    //       logConversation(sessionId, message, goalResponse, context);
-    //       return res.json(goalResponse);
-    //     }
-    //   }
-    // }
+          logConversation(sessionId, message, goalResponse, context);
+          return res.json(goalResponse);
+        }
+      }
+    }
 
-    // Check if we have an active goal - DISABLED FOR REASONING AGENT
-    // const activeGoal = goalArchitecture.activeGoals.get(sessionId);
-    // if (activeGoal && !activeGoal.completed) {
-    //   const nextAction = goalArchitecture.getNextAction(sessionId, context);
-    //   if (nextAction) {
-    //     const currentStep = activeGoal.steps[activeGoal.currentStep];
-    //     const stepKeywords = {
-    //       'identify_project_type': ['project', 'build', 'construct', 'residential', 'commercial'],
-    //       'gather_requirements': ['need', 'require', 'want', 'size', 'budget'],
-    //       'provide_cost_estimate': ['cost', 'price', 'how much', 'estimate'],
-    //       'schedule_meeting': ['meeting', 'consult', 'talk', 'schedule']
-    //     };
+    // Check if we have an active goal
+    const activeGoal = goalArchitecture.activeGoals.get(sessionId);
+    if (activeGoal && !activeGoal.completed) {
+      const nextAction = goalArchitecture.getNextAction(sessionId, context);
+      if (nextAction) {
+        const currentStep = activeGoal.steps[activeGoal.currentStep];
+        const stepKeywords = {
+          'identify_project_type': ['project', 'build', 'construct', 'residential', 'commercial'],
+          'gather_requirements': ['need', 'require', 'want', 'size', 'budget'],
+          'provide_cost_estimate': ['cost', 'price', 'how much', 'estimate'],
+          'schedule_meeting': ['meeting', 'consult', 'talk', 'schedule']
+        };
 
-    //     const keywords = stepKeywords[currentStep] || [];
-    //     if (keywords.some(keyword => userMessage.includes(keyword))) {
-    //       goalArchitecture.updateGoalProgress(sessionId, currentStep);
+        const keywords = stepKeywords[currentStep] || [];
+        if (keywords.some(keyword => userMessage.includes(keyword))) {
+          goalArchitecture.updateGoalProgress(sessionId, currentStep);
 
-    //       const goalProgress = goalArchitecture.getGoalProgress(sessionId);
-    //       const progressResponse = generateNaturalResponse('goal_achievement', {
-    //         goal: activeGoal.name,
-    //         nextStep: activeGoal.steps[activeGoal.currentStep + 1] || 'completion',
-    //         progress: goalProgress.progress
-    //       });
+          const goalProgress = goalArchitecture.getGoalProgress(sessionId);
+          const progressResponse = generateNaturalResponse('goal_achievement', {
+            goal: activeGoal.name,
+            nextStep: activeGoal.steps[activeGoal.currentStep + 1] || 'completion',
+            progress: goalProgress.progress
+          });
 
-    //       const response = formatResponse(
-    //         progressResponse,
-    //         nextAction.suggestions,
-    //         'goal_progress',
-    //         { goalProgress },
-    //         sessionId
-    //       );
+          const response = formatResponse(
+            progressResponse,
+            nextAction.suggestions,
+            'goal_progress',
+            { goalProgress },
+            sessionId
+          );
 
-    //       logConversation(sessionId, message, response, context);
-    //       return res.json(response);
-    //     }
-    //   }
-    // }
+          logConversation(sessionId, message, response, context);
+          return res.json(response);
+        }
+      }
+    }
 
     // Intelligent general query handler
     return await handleGeneralQuery(req, res, sessionId, message, userMessage, context);
@@ -2995,8 +2914,6 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
         - COST_CALCULATOR: For specific cost estimates ("how much for 5 marla?").
         - WEATHER_CHECK: For timeline/weather questions.
         - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
-        - BOOK_MEETING: For requests to meet, consult, or schedule a call.
-        - GET_PORTFOLIO: For requests to see past work, examples, or designs.
         - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
 
         User Request: "${message}"
@@ -3038,16 +2955,16 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
               TOOL_USED: ${plan.action}
               TOOL_RESULT: ${JSON.stringify(toolResult)}
               
-              Task: Write a VERY SHORT, friendly response (1-2 sentences) using the tool data.
+              Task: Write a VERY BRIEF (1 sentence) friendly response using the tool data. No fluff.
               
               RULES:
-              - NO distinct greeting/intro like "Thank you for reaching out"
-              - Get straight to the point
-              - Use natural language
+              - Max 1 sentence.
+              - NO corporate jargon.
+              - Be direct and friendly.
               
               Return JSON ONLY:
               {
-                "reply": "Short, friendly response (1-2 sentences)",
+                "reply": "Short, friendly response (1 sentence)",
                 "suggestions": ["Action 1", "Action 2", "Action 3"]
               }`
           }]
@@ -3067,23 +2984,16 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const directPrompt = {
         contents: [{
           parts: [{
-            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
-            
+            text: `You are a helpful AI assistant for Meezan Developers.
             User: "${message}"
-            
-            Task: Provide a short, friendly, and conversational response (max 2 sentences).
-            Rules:
-            - NO corporate fluff or long intros
-            - Be direct and helpful
-            - Use emojis if appropriate
-            
+            Task: Write a 1-sentence friendly answer. Casual tone. No corporate speak.
             Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };
       const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));
 
       try {
-        const jsonResponse = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
+        const jsonResponse = JSON.parse(rawResponse.replace(/```json / g, '').replace(/```/g, '').trim());
         finalResponseText = jsonResponse.reply;
         generatedSuggestions = jsonResponse.suggestions;
       } catch (e) {

@@ -2931,7 +2931,7 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    if (response.data && response.data.candidates && response.data.candidates.length > 0) {
+    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
       return response.data.candidates[0].content.parts[0].text;
     }
 

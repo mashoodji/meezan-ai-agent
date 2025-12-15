@@ -1,49 +1,83 @@
 const axios = require('axios');
 require('dotenv').config();
 
-async function testFinalSystem() {
-    try {
-        console.log('🧪 Starting Final System Verification...');
+async function runTest(name, query, expectedAction) {
+    console.log(`\n🧪 Testing: ${name}`);
+    console.log(`   Query: "${query}"`);
 
-        // Test 1: Knowledge (Location) - Does it know the address?
-        const knowledgePrompt = {
-            contents: [{
-                parts: [{
-                    text: `You are the Meezan AI. 
-                    KNOWLEDGE BASE:
-                    LOCATION: 97-B Main Boulevard Jubilee Town Housing Scheme Canal Road Lahore
-                    
-                    User: "Where is your office?"
-                    Return JSON: { "reply": "..." }`
-                }]
+    const reasoningPrompt = {
+        contents: [{
+            parts: [{
+                text: `You are the brain of the Meezan AI Construction Consultant.
+        Goal: Analyze the user's request and decide the best course of action.
+        
+        Available Tools:
+        - MARKET_RESEARCH: For questions about trends, prices, or "is this a good time to build?".
+        - COST_CALCULATOR: For specific cost estimates ("how much for 5 marla?").
+        - WEATHER_CHECK: For timeline/weather questions.
+        - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
+        - BOOK_MEETING: For requests to meet, consult, or schedule a call.
+        - GET_PORTFOLIO: For requests to see past work, examples, or designs.
+        - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
+
+        User Request: "${query}"
+
+        Return ONLY a JSON object: { "action": "TOOL_NAME_OR_DIRECT_RESPONSE", "reason": "Why?", "toolParams": { "location": "City Name" } }`
             }]
-        };
+        }]
+    };
 
-        // Verify we can hit the API (using the new model gemini-2.0-flash-lite)
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const response = await axios.post(apiUrl, reasoningPrompt, {
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-        console.log('\n📡 Testing API Connectivity & Model (gemini-1.5-flash)...');
-        const response1 = await axios.post(url, knowledgePrompt);
-        if (response1.status === 200) {
-            console.log('✅ API is Working (200 OK)');
-        }
+        if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            const raw = response.data.candidates[0].content.parts[0].text;
+            const json = JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
 
-        // Test 2: We can't easily test the internal "knowledgeSummary" variable from here, 
-        // but if the API is working, the internal code should work too.
-        // Let's rely on the user to run the app, but this script confirms the API KEY and MODEL are valid.
+            console.log(`   🎯 Action: ${json.action}`);
 
-        console.log('\n✅ System Checks Passed. Ready for manual verification.');
-
-    } catch (error) {
-        if (error.response) {
-            console.error('❌ API Error:', error.response.status, error.response.data);
-            if (error.response.status === 429) {
-                console.error('⚠️ User is still Rate Limited. Please wait a few minutes.');
+            if (json.action === expectedAction) {
+                console.log(`   ✅ PASS`);
+                return true;
+            } else {
+                console.log(`   ❌ FAIL (Expected ${expectedAction})`);
+                return false;
             }
-        } else {
-            console.error('❌ Error:', error.message);
         }
+    } catch (error) {
+        console.log(`   ❌ ERROR: ${error.message}`);
+        return false;
     }
 }
 
-testFinalSystem();
+async function runFinalSuite() {
+    console.log('🚀 STARTING FINAL PRE-DEPLOYMENT CHECKS...\n');
+
+    const tests = [
+        { name: 'Service Area Check', query: 'Can you build in Multan?', expected: 'CHECK_SERVICE_AREA' },
+        { name: 'Meeting Booking', query: 'I want to book a consultation', expected: 'BOOK_MEETING' },
+        { name: 'Cost Estimation', query: 'How much does a 10 marla house cost?', expected: 'COST_CALCULATOR' },
+        { name: 'Portfolio View', query: 'Show me your past projects', expected: 'GET_PORTFOLIO' },
+        { name: 'General Chat', query: 'Hello there', expected: 'DIRECT_RESPONSE' }
+    ];
+
+    let passed = 0;
+    for (const test of tests) {
+        if (await runTest(test.name, test.query, test.expected)) {
+            passed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5s delay to avoid 429
+    }
+
+    console.log(`\n📊 RESULTS: ${passed}/${tests.length} Tests Passed`);
+    if (passed === tests.length) {
+        console.log('✅ SYSTEM READY FOR DEPLOYMENT');
+    } else {
+        console.log('⚠️ REVIEW FAILURES BEFORE DEPLOYMENT');
+    }
+}
+
+runFinalSuite();

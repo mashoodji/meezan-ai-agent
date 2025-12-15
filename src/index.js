@@ -376,7 +376,6 @@ function startKeepAlive() {
   const keepAliveUrl = process.env.RENDER_URL || 'https://meezan-ai-agent.onrender.com';
 
   console.log('🔄 Keep-alive service configured for:', keepAliveUrl);
-  console.log('ℹ️  NOTE: Set RENDER_URL env var if your Render app name is different.');
 
   const pingInterval = setInterval(async () => {
     try {

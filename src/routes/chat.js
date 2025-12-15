@@ -2993,7 +2993,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));
 
       try {
-        const jsonResponse = JSON.parse(rawResponse.replace(/```json / g, '').replace(/```/g, '').trim());
+        const jsonResponse = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
         finalResponseText = jsonResponse.reply;
         generatedSuggestions = jsonResponse.suggestions;
       } catch (e) {

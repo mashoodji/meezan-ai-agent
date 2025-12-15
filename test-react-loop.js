@@ -27,7 +27,7 @@ async function testReActLoop() {
             }]
         };
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
         console.log('📤 Sending reasoning request to Gemini...');
         const response = await axios.post(apiUrl, reasoningPrompt, {

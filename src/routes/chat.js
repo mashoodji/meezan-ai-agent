@@ -2993,20 +2993,20 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const synthesisPrompt = {
         contents: [{
           parts: [{
-            text: `${systemPrompt}
+            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
               
               USER QUESTION: "${message}"
               
               TOOL_USED: ${plan.action}
               TOOL_RESULT: ${JSON.stringify(toolResult)}
               
-              Task: Provide a helpful, professional response including the tool data.
+              Task: Provide a helpful, professional response that incorporates the tool result data. Be specific and reference the actual data from the tool.
               
               IMPORTANT: Return a JSON object ONLY. No markdown formatting.
               Format:
               {
-                "reply": "Your friendly, expert response text here.",
-                "suggestions": ["Short Suggestion 1", "Short Suggestion 2", "Short Suggestion 3"]
+                "reply": "Your friendly, expert response text here that uses the tool data.",
+                "suggestions": ["Relevant Suggestion 1", "Relevant Suggestion 2", "Relevant Suggestion 3"]
               }`
           }]
         }]
@@ -3025,12 +3025,12 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const directPrompt = {
         contents: [{
           parts: [{
-            text: `${systemPrompt}
+            text: `You are an expert AI consultant for Meezan Developers, a construction company with 17+ years of experience and 263+ completed projects.
             
             User: "${message}"
             
-            Task: meaningful response + 3 relevant short suggestions.
-            Return JSON ONLY: { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
+            Task: Provide a helpful, professional response and 3 relevant action suggestions.
+            Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };
       const rawResponse = await callGeminiAPI(directPrompt, getSmartFallbackResponse(userMessage, context));
@@ -3062,6 +3062,10 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
 
   } catch (error) {
     console.error('❌ Reasoning Loop Error:', error);
+    console.error('❌ Error Message:', error.message);
+    console.error('❌ Error Stack:', error.stack);
+    console.error('❌ User Query:', message);
+
     // Fallback to old handler logic if reasoning fails
     const fallback = getSmartFallbackResponse(userMessage, context);
     return res.json(formatResponse(fallback, [], 'fallback_error', null, sessionId));

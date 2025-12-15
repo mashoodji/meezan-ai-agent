@@ -2962,20 +2962,37 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
     return fallbackResponse;
   }
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
-    const response = await axios.post(url, promptConfig, {
-      headers: { 'Content-Type': 'application/json' }
-    });
+  const MAX_RETRIES = 3;
+  const DELAY_MS = 4000;
 
-    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return response.data.candidates[0].content.parts[0].text;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Using Flash-Lite for better speed and rate limits
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+      const response = await axios.post(url, promptConfig, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return response.data.candidates[0].content.parts[0].text;
+      }
+      return fallbackResponse;
+
+    } catch (error) {
+      const isRateLimit = error.response?.status === 429;
+
+      if (isRateLimit && attempt < MAX_RETRIES) {
+        console.warn(`⚠️ Rate limit hit. Retrying in ${DELAY_MS / 1000}s... (Attempt ${attempt}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        continue; // Retry
+      }
+
+      if (attempt === MAX_RETRIES) {
+        console.error('❌ Gemini API Error (Final):', error.response?.data?.error?.message || error.message);
+        return fallbackResponse;
+      }
     }
-
-    return fallbackResponse;
-  } catch (error) {
-    console.error('❌ Gemini API Error:', error.response?.data || error.message);
-    return fallbackResponse;
   }
 }
 
@@ -3029,7 +3046,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
         - CHECK_SERVICE_AREA: For queries about locations (Karachi, Lahore, Multan, etc.).
         - BOOK_MEETING: For requests to meet, consult, or schedule a call.
         - GET_PORTFOLIO: For requests to see past work, examples, or designs.
-        - DIRECT_RESPONSE: For general info (location, about us, contact) or if no tool is needed.
+        - DIRECT_RESPONSE: For greetings, general info, or if no tool is needed.
 
         User Request: "${message}"
 
@@ -3064,7 +3081,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
       const synthesisPrompt = {
         contents: [{
           parts: [{
-            text: `You are a helpful AI consultant for Meezan Developers.
+            text: `You are a helpful AI consultant for Meezan Developers (17+ years, 263+ projects).
               
               KNOWLEDGE BASE:
               ${knowledgeSummary}
@@ -3109,7 +3126,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
             
             User: "${message}"
             
-            Task: Provide a short, friendly, and conversational response (max 2 sentences) using the Knowledge Base.
+            Task: Provide a short, friendly, and conversational response (max 2 sentences).
             Rules:
             - NO corporate fluff or long intros
             - Be direct and helpful
@@ -3156,7 +3173,5 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
     return res.json(formatResponse(fallback, [], 'fallback_error', null, sessionId));
   }
 }
-
-
 
 module.exports = router;

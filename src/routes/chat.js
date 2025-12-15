@@ -2606,6 +2606,14 @@ function searchKnowledgeBase(userMessage) {
 }
 
 function getSmartFallbackResponse(userMessage, context) {
+  // Smart Location Check (runs if API is down/429)
+  const cities = ['karachi', 'lahore', 'islamabad', 'rawalpindi', 'multan', 'faisalabad', 'peshawar', 'quetta', 'sialkot', 'gujranwala'];
+  const mentionedCity = cities.find(city => userMessage.toLowerCase().includes(city));
+
+  if (mentionedCity) {
+    const formattedCity = mentionedCity.charAt(0).toUpperCase() + mentionedCity.slice(1);
+    return `Yes, we have active teams in ${formattedCity}. How can we help?`;
+  }
   if (context.lastTopic === 'our services' && (userMessage.includes('cost') || userMessage.includes('price'))) {
     return `I'd be happy to provide detailed cost estimates for ${context.lastService || 'that service'}! Would you like current market rates or a customized calculation?`;
   }

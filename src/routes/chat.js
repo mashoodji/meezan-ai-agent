@@ -2619,7 +2619,8 @@ function searchKnowledgeBase(userMessage) {
     return knowledge.companyInfo.history;
   }
 
-  if (lowerMessage.includes('contact') || lowerMessage.includes('phone') || lowerMessage.includes('email')) {
+  if (lowerMessage.includes('contact') || lowerMessage.includes('phone') || lowerMessage.includes('email') ||
+    lowerMessage.includes('location') || lowerMessage.includes('address') || lowerMessage.includes('office')) {
     return `Contact Meezan Developers:\n📞 Phone: ${knowledge.company.contact.phone}\n📱 WhatsApp: ${knowledge.company.contact.whatsapp}\n📧 Email: ${knowledge.company.contact.email}\n🏢 Address: ${knowledge.company.contact.address}`;
   }
 
@@ -2934,6 +2935,20 @@ async function callGeminiAPI(promptConfig, fallbackResponse) {
 
 // ==================== NEW: REASONING & AUTONOMY AGENT HANDLER ====================
 async function handleGeneralQuery(req, res, sessionId, message, userMessage, context) {
+  // 0. QUICK KNOWLEDGE CHECK (Saves API calls & ensures accuracy)
+  const knowledgeMatch = searchKnowledgeBase(userMessage);
+  if (knowledgeMatch) {
+    console.log('📚 Knowledge Base Match Found');
+    const response = formatResponse(
+      knowledgeMatch,
+      getRelevantSuggestions(userMessage, context),
+      'knowledge_response',
+      null,
+      sessionId
+    );
+    return res.json(response);
+  }
+
   // 1. REASONING STEP: PLAN
   console.log('🤖 AI Agent Thinking about:', message);
 

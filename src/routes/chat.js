@@ -2595,28 +2595,46 @@ function getCostFallbackResponse(userMessage) {
 function searchKnowledgeBase(userMessage) {
   const lowerMessage = userMessage.toLowerCase();
 
-  // Check FAQs
+  // 1. Projects & Portfolio (Aggregated Stats)
+  if (lowerMessage.includes('current projects') || lowerMessage.includes('portfolio') || (lowerMessage.includes('projects') && lowerMessage.includes('available'))) {
+    return `We currently have ${knowledge.projectPortfolio.currentProjects} and ${knowledge.projectPortfolio.upcomingProjects}. Our portfolio includes ${knowledge.projectPortfolio.totalCompleted} completed projects across Residential, Commercial, and Industrial sectors.`;
+  }
+
+  // 2. Types of Projects / Services
+  if (lowerMessage.includes('types of project') || lowerMessage.includes('what services') || lowerMessage.includes('what do you build')) {
+    const serviceNames = knowledge.services.map(s => s.name).join(', ');
+    return `We specialize in a wide range of construction projects including: ${serviceNames}.`;
+  }
+
+  // 3. Specific City/Location Service Check
+  const cities = ['karachi', 'lahore', 'islamabad', 'rawalpindi', 'multan', 'faisalabad', 'peshawar', 'quetta', 'sialkot', 'gujranwala'];
+  const mentionedCity = cities.find(city => lowerMessage.includes(city));
+  if (mentionedCity) {
+    const formattedCity = mentionedCity.charAt(0).toUpperCase() + mentionedCity.slice(1);
+    return `Yes, we have active teams and projects in ${formattedCity}. We can definitely assist you there.`;
+  }
+
+  // 4. Contact & Office Location
+  if (lowerMessage.includes('address') || lowerMessage.includes('office location') || lowerMessage.includes('where is your office')) {
+    return `Contact Meezan Developers:\n📞 Phone: ${knowledge.company.contact.phone}\n📱 WhatsApp: ${knowledge.company.contact.whatsapp}\n📧 Email: ${knowledge.company.contact.email}\n🏢 Address: ${knowledge.company.contact.address}`;
+  }
+
+  // 5. Check FAQs (Stricter Matching)
   for (const faq of knowledge.faqs) {
-    if (lowerMessage.includes(faq.question.toLowerCase().split(' ')[0]) ||
-      faq.question.toLowerCase().includes(lowerMessage.split(' ')[0])) {
+    const questionKeywords = faq.question.toLowerCase().replace('?', '').split(' ').filter(w => w.length > 3);
+    const matchCount = questionKeywords.filter(kw => lowerMessage.includes(kw)).length;
+
+    // Require at least 50% keyword match or exact unique phrase
+    if (matchCount >= Math.max(2, questionKeywords.length * 0.5)) {
       return faq.answer;
     }
   }
 
-  // Check services
+  // 6. Check Specific Services (Name Match)
   for (const service of knowledge.services) {
-    if (lowerMessage.includes(service.name.toLowerCase().split(' ')[0])) {
+    if (lowerMessage.includes(service.name.toLowerCase())) {
       return `For ${service.name}, we offer: ${service.description}`;
     }
-  }
-
-  // Check specific company info
-  if (lowerMessage.includes('mission') || lowerMessage.includes('vision')) {
-    return `**Mission:** ${knowledge.companyInfo.mission}\n\n**Vision:** ${knowledge.companyInfo.vision}`;
-  }
-
-  if (lowerMessage.includes('history') || lowerMessage.includes('established')) {
-    return knowledge.companyInfo.history;
   }
 
   if (lowerMessage.includes('contact') || lowerMessage.includes('phone') || lowerMessage.includes('email') ||

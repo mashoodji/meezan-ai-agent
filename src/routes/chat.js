@@ -156,7 +156,7 @@ const systemPrompt = `You are a helpful, casual, and direct AI assistant for Mee
 Goal: Chat like a helpful friend, NOT a corporate robot.
 
 RULES:
-1. MAX 2 SENTENCES per response.
+1. MAX 2-3 SENTENCES per response. Not too short, not too long.
 2. NO big words or corporate jargon (e.g., "meticulous", "scalable", "pride ourselves").
 3. Be friendly and straight to the point.
 4. If asked about services, just say "Yes, we work in [City]" or "We can help with that."`;
@@ -2031,7 +2031,28 @@ async function handleMeetingBooking(req, res, sessionId, userMessage, context) {
 
   // Step 1: Get name
   if (meetingState.step === 1) {
-    const userName = req.body.message.trim();
+    const rawMessage = req.body.message.trim();
+    let userName = rawMessage;
+
+    // Smart name extraction
+    const namePatterns = [
+      /my name is ([a-zA-Z\s]+)/i,
+      /i am ([a-zA-Z\s]+)/i,
+      /call me ([a-zA-Z\s]+)/i,
+      /this is ([a-zA-Z\s]+)/i
+    ];
+
+    for (const pattern of namePatterns) {
+      const match = rawMessage.match(pattern);
+      if (match && match[1]) {
+        userName = match[1].trim();
+        break;
+      }
+    }
+
+    // Capitalize name
+    userName = userName.charAt(0).toUpperCase() + userName.slice(1);
+
     meetingState.data.name = userName;
     context.clientName = userName;
     meetingState.step = 2;
@@ -2614,6 +2635,11 @@ function getSmartFallbackResponse(userMessage, context) {
     const formattedCity = mentionedCity.charAt(0).toUpperCase() + mentionedCity.slice(1);
     return `Yes, we have active teams in ${formattedCity}. How can we help?`;
   }
+
+  // Company Location Check
+  if (userMessage.toLowerCase().includes('location') || userMessage.toLowerCase().includes('address') || userMessage.toLowerCase().includes('office')) {
+    return `Our head office is located at ${knowledge.company.contact.address}. We'd love to welcome you for a visit!`;
+  }
   if (context.lastTopic === 'our services' && (userMessage.includes('cost') || userMessage.includes('price'))) {
     return `I'd be happy to provide detailed cost estimates for ${context.lastService || 'that service'}! Would you like current market rates or a customized calculation?`;
   }
@@ -2963,10 +2989,10 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
               TOOL_USED: ${plan.action}
               TOOL_RESULT: ${JSON.stringify(toolResult)}
               
-              Task: Write a VERY BRIEF (1 sentence) friendly response using the tool data. No fluff.
+              Task: Write a concise friendly response (2-3 sentences) using the tool data.
               
               RULES:
-              - Max 1 sentence.
+              - Length: 2-3 sentences.
               - NO corporate jargon.
               - Be direct and friendly.
               
@@ -2994,7 +3020,7 @@ async function handleGeneralQuery(req, res, sessionId, message, userMessage, con
           parts: [{
             text: `You are a helpful AI assistant for Meezan Developers.
             User: "${message}"
-            Task: Write a 1-sentence friendly answer. Casual tone. No corporate speak.
+            Task: Write a friendly answer (2-3 sentences). Casual tone. No corporate speak.
             Return JSON ONLY (no markdown): { "reply": "...", "suggestions": ["...", "...", "..."] }` }]
         }]
       };
